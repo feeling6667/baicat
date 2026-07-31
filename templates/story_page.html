@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}} — 画一个故事</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fafafa;
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    color: #1a1a1a;
+    padding: 20px 16px 60px;
+  }
+  .header {
+    text-align: center;
+    padding: 40px 20px 30px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    color: #111;
+  }
+  .header .subtitle {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #999;
+    letter-spacing: 2px;
+  }
+  .panel {
+    max-width: 420px;
+    margin: 0 auto 40px;
+    text-align: center;
+  }
+  .panel img {
+    width: 100%;
+    border-radius: 4px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+  }
+  .panel .caption {
+    margin-top: 16px;
+    font-size: 16px;
+    line-height: 1.8;
+    color: #333;
+    font-weight: 500;
+  }
+  .panel .caption .red {
+    color: #dd4528;
+    font-weight: 700;
+  }
+  .panel .num {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 12px;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 50px;
+    padding: 30px 20px;
+    border-top: 1px solid #eee;
+  }
+  .footer p {
+    font-size: 13px;
+    color: #bbb;
+    letter-spacing: 1px;
+  }
+  .footer .tag {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #ccc;
+  }
+</style>
+</head>
+<body>
+
+<!-- 
+  使用说明：
+  1. 替换 {{TITLE}} 为故事标题
+  2. 复制下面的 .panel 块，每格一个
+  3. 替换图片文件名和文案
+  4. 需要标红的文案用 <span class="red">文字</span> 包裹
+  5. 图片放在与此 HTML 同一目录下
+-->
+
+<div class="header">
+  <h1>{{TITLE}}</h1>
+  <div class="subtitle">画一个故事</div>
+</div>
+
+<!-- Panel template — copy and modify -->
+<div class="panel">
+  <span class="num">1</span>
+  <img src="story_p1.jpeg" alt="panel 1">
+  <div class="caption">这里写文案</div>
+</div>
+
+<div class="panel">
+  <span class="num">2</span>
+  <img src="story_p2.jpeg" alt="panel 2">
+  <div class="caption">需要标红的<span class="red">文字</span></div>
+</div>
+
+<div class="footer">
+  <p>#画一个故事</p>
+  <div class="tag">AI 生成 · GPT Image 2 · 手绘涂鸦条漫风格</div>
+</div>
+
+</body>
+</html>
