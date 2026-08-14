@@ -32,7 +32,7 @@ description: "生成手绘涂鸦风格（doodle）漫画故事插画和多格条
 | 构图 | 条漫分镜式，主体居中，大量白底留白 |
 | 人物 | Q版简笔：头大身小，豆豆眼/黑点眼，凌乱卷发，面无表情→疲惫 |
 | 情绪 | 冷静、自嘲、略带讽刺，清醒中带孤独，轻微emo |
-| 文字 | **图中无文字**，文案放在图片下方 |
+| 文字 | **手写体黑色中文写在画面上方留白区**，也可用手绘对话气泡 |
 
 **Prompt 模板：**
 ```
@@ -41,14 +41,16 @@ Black and white rough ink line art on clean white background.
 The ONLY color in the image is ONE bright red element.
 Sketchy, trembling, casual ink lines with unfinished edges and spontaneous linework.
 Minimalist Q-version character: big head small body, simple dot eyes, messy tousled hair.
-Lots of white negative space, centered subject.
+Lots of white negative space, centered subject in the LOWER portion of the image.
+The TOP THIRD of the image is deliberately left blank white space for hand-lettered Chinese text.
+Black hand-drawn Chinese characters in the top blank area, slightly wobbly and uneven like a casual diary note.
 Diary-style emotional illustration, melancholic yet humorous mood.
-No text, no speech bubbles, no words, no letters anywhere in the image.
+Speech bubbles are allowed: rough hand-drawn oval outlines with black text inside.
 
 SCENE: {画面描述}
 ```
 
-**约束**：禁止图中出现文字；每格只有一个红色元素；人物造型各格一致。
+**约束**：每格只有一个红色元素；人物造型各格一致；文字写在画面上方留白区或对话气泡内。
 
 ---
 
@@ -92,7 +94,7 @@ SCENE: {画面描述}
 
 将用户主题拆成 6-10 格条漫分镜，每格包含：
 - **画面**：一句话描述场景动作（英文，填入 prompt 模板的 SCENE）
-- **文案**：短句（≤15字），涂鸦风格放图下，彩铅风格写在画面上
+- **文案**：短句（≤15字），涂鸦风格写在画面上方留白区或对话气泡内，彩铅风格写在画面上
 
 情绪线设计：从一个状态渐变到另一个状态（如：期待→麻木→释然）。
 
@@ -138,7 +140,7 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 用 `templates/story_page.html` 模板生成最终 HTML 页面：
 - 替换 `{{TITLE}}` 为故事标题
 - 复制 panel 块，替换图片文件名和文案
-- 涂鸦风格：红色文案用 `<span class="red">` 包裹，文案在图下
+- 涂鸦风格：红色文案用 `<span class="red">` 包裹，文案写在画面上方留白区或对话气泡内
 - 彩铅风格：文案直接写在图上方区域，用手写体 CSS
 
 ## 关键约束
@@ -146,5 +148,5 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 - **人物造型各格一致** — 同一故事内风格统一；连续分镜用 anchor 锚点图或逐格参考锁定
 - **配方驱动** — 画风 prompt 存 `STYLES.md`，脚本只负责提取+填占位符，禁止手工缩写配方
 - **留白为主** — 不要把画面填满
-- **涂鸦风格禁止图中文字**；**彩铅风格文字是画面一部分**
+- **涂鸦风格文字写在画面上方留白区或对话气泡内**；**彩铅风格文字是画面一部分**
 - **涂鸦只有一种红色**；**彩铅低饱和多色但克制**

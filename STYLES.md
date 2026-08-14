@@ -17,14 +17,16 @@ Black and white rough ink line art on clean white background.
 The ONLY color in the image is ONE bright red element.
 Sketchy, trembling, casual ink lines with unfinished edges and spontaneous linework.
 Minimalist Q-version character: big head small body, simple dot eyes, messy tousled hair.
-Lots of white negative space, centered subject.
+Lots of white negative space, centered subject in the LOWER portion of the image.
+The TOP THIRD of the image is deliberately left blank white space for hand-lettered Chinese text.
+Black hand-drawn Chinese characters in the top blank area, slightly wobbly and uneven like a casual diary note.
 Diary-style emotional illustration, melancholic yet humorous mood.
-No text, no speech bubbles, no words, no letters anywhere in the image.
+Speech bubbles are allowed: rough hand-drawn oval outlines with black text inside.
 
 SCENE: 【主体】
 ```
 
-约束：禁止图中出现文字；每格只有一个红色元素；人物造型各格一致。
+约束：每格只有一个红色元素；人物造型各格一致；文字写在画面上方留白区或对话气泡内。
 
 ---
 
