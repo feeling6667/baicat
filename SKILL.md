@@ -93,8 +93,8 @@ SCENE: {画面描述}
 ### 2. 写故事脚本
 
 将用户主题拆成 6-10 格条漫分镜，每格包含：
-- **画面**：一句话描述场景动作（英文，填入 prompt 模板的 SCENE）
-- **文案**：短句（≤15字），涂鸦风格写在画面上方留白区或对话气泡内，彩铅风格写在画面上
+- **scene（画面）**：一句话描述场景动作（英文，填入配方的 `【主体】`）
+- **text（文字）**：要画进图里的中文（对话气泡台词 + 旁白字幕），填入配方的 `【文字】`。**必须写进生图 prompt，让 GPT Image 2 把中文直接画在图里，而不是放在图外。**
 
 情绪线设计：从一个状态渐变到另一个状态（如：期待→麻木→释然）。
 
@@ -116,14 +116,23 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
   "style": "doodle",
   "anchor": "optional/path/anchor.png",
   "panels": [
-    {"id": "p1", "scene": "A girl sitting on a chair hugging knees, quietly waiting. Red hair clip. Phone on table."},
-    {"id": "p2", "scene": "Same pose, calendar page flipped, sky dimmer."}
+    {
+      "id": "p1",
+      "scene": "A girl sitting on a chair hugging knees, quietly waiting. Red hair clip.",
+      "text": "旁白：等一个人。\n对话气泡：你在哪？"
+    },
+    {
+      "id": "p2",
+      "scene": "Same pose, calendar page flipped, sky dimmer.",
+      "text": "旁白：她还在等。"
+    }
   ]
 }
 ```
 `anchor` 可选；不填则第 2 格起自动用上一格输出当画风参考。
+`text` 必填——文字直接画进图里，不要放在图外。
 
-脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】` 占位符（配方驱动，不写死在脚本里，加画风只改 STYLES.md 不改脚本），逐格调用 GPT Image 2，保存为 `{output_dir}/story_p1.jpeg` 等。
+脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】` 和 `【文字】` 占位符（配方驱动，不写死在脚本里，加画风只改 STYLES.md 不改脚本），逐格调用 GPT Image 2，保存为 `{output_dir}/story_p1.jpeg` 等。
 
 **画风一致性机制（连续分镜锁风格）**：
 故事 JSON 可选 `anchor` 字段指定一张画风锚点图；设定后每格生成都把它作为 style-only 参考传入，锁定多格画风一致（只继承线条/配色/比例/氛围，不复制人物服装站位）。未指定 anchor 时，第 2 格起自动用上一格输出作为参考，保证连贯。
@@ -135,18 +144,28 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 - 质量：`high`
 - 返回：`b64_json`，需 base64 解码保存为 JPEG
 
+**IMAGE_API_URL 未设时的替代路线**：
+iSH 环境可能没有 `IMAGE_API_URL`。此时脚本的 urllib 直调路线跑不了，改用 `minis-model-use`：
+```bash
+minis-model-use run --model gpt-image-2 --endpoint images-gen --input req.json --output out.png
+```
+req.json 的 messages 里放完整 prompt（配方提取 + 填充后的文本），generation_config 放 size 和 n。
+
 ### 4. 组装图文故事页面
 
 用 `templates/story_page.html` 模板生成最终 HTML 页面：
 - 替换 `{{TITLE}}` 为故事标题
-- 复制 panel 块，替换图片文件名和文案
-- 涂鸦风格：红色文案用 `<span class="red">` 包裹，文案写在画面上方留白区或对话气泡内
-- 彩铅风格：文案直接写在图上方区域，用手写体 CSS
+- 复制 panel 块，替换图片文件名
+- **纯图片竖排模式**：文字全部画在图里，HTML 不再放图外文案
+- 图片放在与此 HTML 同一目录下
 
 ## 关键约束
 
+- **文字必须画进图里** — 对话和旁白写进生图 prompt 的 `【文字】`，让 GPT Image 2 直接画在图里，不要放在图外
 - **人物造型各格一致** — 同一故事内风格统一；连续分镜用 anchor 锚点图或逐格参考锁定
 - **配方驱动** — 画风 prompt 存 `STYLES.md`，脚本只负责提取+填占位符，禁止手工缩写配方
+- **配方不锁角色** — 人物外貌由故事内容决定，配方不写死角色描述，各格保持一致即可
 - **留白为主** — 不要把画面填满
 - **涂鸦风格文字写在画面上方留白区或对话气泡内**；**彩铅风格文字是画面一部分**
 - **涂鸦只有一种红色**；**彩铅低饱和多色但克制**
+- **中文必须清晰可读** — 配方已写死 "no garbled or fake characters" 约束

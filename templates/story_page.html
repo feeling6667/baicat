@@ -10,7 +10,7 @@
     background: #fafafa;
     font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
     color: #1a1a1a;
-    padding: 20px 16px 60px;
+    padding: 20px 0 60px;
   }
   .header {
     text-align: center;
@@ -29,40 +29,20 @@
     letter-spacing: 2px;
   }
   .panel {
-    max-width: 420px;
-    margin: 0 auto 40px;
+    max-width: 100%;
+    margin: 0 auto 24px;
     text-align: center;
   }
   .panel img {
     width: 100%;
-    border-radius: 4px;
+    max-width: 420px;
+    display: block;
+    margin: 0 auto;
     box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-  }
-  .panel .caption {
-    margin-top: 16px;
-    font-size: 16px;
-    line-height: 1.8;
-    color: #333;
-    font-weight: 500;
-  }
-  .panel .caption .red {
-    color: #dd4528;
-    font-weight: 700;
-  }
-  .panel .num {
-    display: inline-block;
-    width: 28px;
-    height: 28px;
-    line-height: 28px;
-    border-radius: 50%;
-    background: #f0f0f0;
-    font-size: 13px;
-    color: #999;
-    margin-bottom: 12px;
   }
   .footer {
     text-align: center;
-    margin-top: 50px;
+    margin-top: 40px;
     padding: 30px 20px;
     border-top: 1px solid #eee;
   }
@@ -81,12 +61,11 @@
 <body>
 
 <!-- 
-  使用说明：
+  使用说明（抖音图文模式——文字全部画在图里，HTML 只做纯图片竖排）：
   1. 替换 {{TITLE}} 为故事标题
-  2. 复制下面的 .panel 块，每格一个
-  3. 替换图片文件名和文案
-  4. 需要标红的文案用 <span class="red">文字</span> 包裹
-  5. 图片放在与此 HTML 同一目录下
+  2. 复制 .panel 块，每格一个
+  3. 替换图片文件名
+  4. 图片放在与此 HTML 同一目录下
 -->
 
 <div class="header">
@@ -96,20 +75,16 @@
 
 <!-- Panel template — copy and modify -->
 <div class="panel">
-  <span class="num">1</span>
   <img src="story_p1.jpeg" alt="panel 1">
-  <div class="caption">这里写文案</div>
 </div>
 
 <div class="panel">
-  <span class="num">2</span>
   <img src="story_p2.jpeg" alt="panel 2">
-  <div class="caption">需要标红的<span class="red">文字</span></div>
 </div>
 
 <div class="footer">
   <p>#画一个故事</p>
-  <div class="tag">AI 生成 · GPT Image 2 · 手绘涂鸦条漫风格</div>
+  <div class="tag">AI 生成 · GPT Image 2</div>
 </div>
 
 </body>

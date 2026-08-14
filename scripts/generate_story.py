@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Batch generate comic story panels via GPT Image 2.
 
-配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】占位符，
+配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【文字】占位符，
 禁止手工缩写。支持连续分镜的画风一致性（style-anchor 参考图机制）。
 
 Usage:
@@ -14,8 +14,11 @@ Story JSON format:
   "style": "doodle",
   "anchor": "optional/path/anchor.png",   # 可选：画风锚点图，每格都传以保证多格一致
   "panels": [
-    {"id": "p1", "scene": "A girl sitting on a chair hugging knees..."},
-    {"id": "p2", "scene": "Same pose, calendar page flipped, sky dimmer."}
+    {
+      "id": "p1",
+      "scene": "A girl sitting on a chair hugging knees...",   # 画面描述（英文）
+      "text": "旁白：等一个人。对话：你在哪？"                  # 画进图里的中文（必填）
+    }
   ]
 }
 
@@ -198,8 +201,10 @@ def main() -> int:
             continue
 
         # 配方驱动：从模板填充占位符，禁止手改配方
+        # 【主体】= 画面场景描述，【文字】= 画进图里的中文（对话+旁白）
+        text = panel.get("text", "")
         try:
-            style_prompt = render(style_template, {"主体": scene})
+            style_prompt = render(style_template, {"主体": scene, "文字": text})
         except ValueError as e:
             print(f"[{i+1}/{len(panels)}] {pid}: render error: {e}", file=sys.stderr)
             continue
