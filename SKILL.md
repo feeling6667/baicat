@@ -1,6 +1,6 @@
 ---
 name: baicat
-description: "生成手绘涂鸦风格（doodle）漫画故事插画和多格条漫页面，含两种风格：①「涂鸦」黑白墨线+单一红色点缀、Q版角色、黑色幽默；②「彩铅」低饱和色调、铅笔/石墨质感、写实比例、治愈氛围。当用户要求\"画一个故事\"、\"生成条漫\"、\"做个漫画故事\"、\"涂鸦风格\"、\"彩铅风格\"、\"doodle comic\"、\"colored pencil\"，或想创作治愈系生活切片故事分镜时使用。内置观众介入型故事重构：先诊断素材势能、重构故事核、配置互动机制与结局，确认后再按最多15格编排。涵盖故事重构、风格提示词工程、批量出图、HTML 故事页组装。"
+description: "生成手绘涂鸦风格（doodle）漫画故事插画和多格条漫页面，含两种风格：①「涂鸦」黑白墨线+单一红色点缀、Q版角色、黑色幽默；②「彩铅」低饱和色调、铅笔/石墨质感、写实比例、治愈氛围。当用户要求\"画一个故事\"、\"生成条漫\"、\"做个漫画故事\"、\"涂鸦风格\"、\"彩铅风格\"、\"doodle comic\"、\"colored pencil\"，或想创作治愈系生活切片故事分镜时使用。涵盖风格提示词工程、故事脚本、批量出图、HTML 故事页组装。"
   Generate hand-drawn comic story illustrations and multi-panel pages in TWO styles.
   Style 1 「涂鸦」(doodle): black-and-white ink sketch + single red accent, Q-version characters, melancholic humor.
   Style 2 「彩铅」(colored-pencil): muted desaturated palette, pencil/graphite texture, realistic proportions, healing atmosphere.
@@ -85,16 +85,6 @@ SCENE: {画面描述}
 ---
 
 ## 工作流
-
-### 0. 观众介入型故事重构（默认前置流程）
-
-在开始写分镜或生图前，读取并执行 `/var/minis/skills/观众介入图文故事/SKILL.md`。
-
-严格遵循其顺序：素材势能诊断 → 定向重构 → 互动机制配置 → 结局策略 → 用户确认闸门 → 图文编排。未得到用户确认，不得擅自进入分镜、生图或 HTML 组装。
-
-重构 Skill 的全局硬性要求同样适用于 baicat：逻辑优先于效果。人物动机、信息来源、时间地点、动作先后、因果关系与已完成决定必须前后一致；发现冲突先指出并修正，不得为了反转、留白、评论点或视觉效果硬造不成立的情节。
-
-图文编排不硬性规定格数，按故事复杂度决定，最高15格；每格必须有叙事功能，不得为了凑格数注水。
 
 ### 1. 确认风格
 
