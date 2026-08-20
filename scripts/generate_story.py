@@ -14,6 +14,15 @@ Usage:
   python3 generate_story.py --story-json story.json --output-dir /var/minis/attachments
   python3 generate_story.py --story-json story.json --style colored-pencil
   python3 generate_story.py --story-json story2.json --lighting 3 --paper 5
+  python3 generate_story.py --story-json story8.json --style colored-pencil --split2
+
+Split2 双分镜模式（仅 colored-pencil）：
+  - 总格数 >6 时启用；第1格作封面单图（竖版3:4），其余相邻两格拼成一张
+    1024x1536 双分镜图，中间用极淡浅灰细线（#d9d9d9）分隔，禁止粗黑漫画边框。
+  - 每个分镜上方预留干净留白放旁白；同一张图内上下两分镜光影色调统一；
+    分镜构图均衡不拥挤、彩铅细节完整、不压缩笔触质感。
+  - 封面必为单图，不能一图两格。
+  - 开启方式：CLI `--split2` 或 story JSON `"split2": true`；≤6格自动回退逐格单图。
 
 Story JSON format:
 {
@@ -22,6 +31,7 @@ Story JSON format:
   "anchor": "optional/path/anchor.png",   # 可选：画风锚点图，每格都传以保证多格一致
   "lighting": 3,                          # 可选：光影序号 1-6；不填则自动轮换
   "paper": 2,                             # 可选：画纸序号 1-5；不填则自动轮换
+  "split2": true,                         # 可选：双分镜模式（总格数>6才真正生效）
   "panels": [
     {
       "id": "p1",
@@ -45,6 +55,7 @@ import re
 import sys
 import time
 import urllib.request
+from io import BytesIO
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skill 根目录
@@ -214,11 +225,13 @@ def render(template: str, values: dict[str, str]) -> str:
 
 
 def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
-                   anchor_path: str | None = None) -> bytes:
+                   anchor_path: str | None = None,
+                   size: str = "1024x1536") -> bytes:
     """生成单格图片，返回 JPEG 原始字节。
 
     若提供 anchor_path（画风锚点图），把上一格的输出作为 Image 1、锚点作为 Image 2，
     用图生图方式生成，锁定多格画风一致性（借鉴 hand-drawn-styles 的锚点机制）。
+    size：单图输出尺寸。竖版条漫默认 1024x1536；双分镜模式下单格单元用 1024x1024。
     """
     prompt = style_prompt + "\n\nSCENE: " + scene
 
@@ -226,7 +239,7 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
     body: dict = {
         "model": "gpt-image-2",
         "prompt": prompt,
-        "size": "1024x1536",
+        "size": size,
         "quality": "high",
         "n": 1,
     }
@@ -263,6 +276,50 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
     return base64.b64decode(b64)
 
 
+def compose_split2(top_bytes: bytes, bottom_bytes: bytes,
+                   target_w: int = 1024, target_h: int = 1536,
+                   seam: int = 8, separator_color=(217, 217, 217)) -> bytes:
+    """把上下两个分镜单元竖直拼接成一张 3:4 竖版双分镜图。
+
+    中间保留一条 seam 像素高的"极淡浅灰色细线"作分镜分隔（默认 #d9d9d9，远非黑色粗线）。
+    两个单元先各自条缩到统一宽度再拼接，以保留彩铅笔触细节、避免过度压缩画质。
+    返回 JPEG 字节。
+    """
+    from PIL import Image, ImageDraw
+    top = Image.open(BytesIO(top_bytes)).convert("RGB")
+    bottom = Image.open(BytesIO(bottom_bytes)).convert("RGB")
+
+    # 两单元统一高（目标高度扣除分隔线后，上下各半）
+    body_h = target_h - seam
+    unit_h = body_h // 2
+
+    def _fit(img, w, h):
+        # 覆盖裁剪：保证铺满目标区域，优先保留画面主体（居中）
+        img.thumbnail((w * 2, h * 2), Image.LANCZOS)
+        ow, oh = img.size
+        scale = max(w / ow, h / oh)
+        img = img.resize((int(ow * scale), int(oh * scale)), Image.LANCZOS)
+        img = img.crop(((img.width - w) // 2, (img.height - h) // 2,
+                        (img.width + w) // 2, (img.height + h) // 2))
+        return img
+
+    top = _fit(top, target_w, unit_h)
+    bottom = _fit(bottom, target_w, unit_h)
+
+    canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
+    canvas.paste(top, (0, 0))
+    canvas.paste(bottom, (0, unit_h + seam))
+
+    draw = ImageDraw.Draw(canvas)
+    draw.line([(0, unit_h + seam // 2), (target_w, unit_h + seam // 2)],
+              fill=separator_color, width=seam)
+    # 极淡浅灰细线，近似画纸折痕，非漫画粗黑边框
+
+    buf = BytesIO()
+    canvas.save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Generate comic story panels (recipe-driven, supports style-anchor and anti-homogenization variants)"
@@ -282,6 +339,11 @@ def main() -> int:
     ap.add_argument(
         "--paper", default=None, type=str,
         help="Optional paper-texture variant: index (1-5) or description text. Anti-homogenization.",
+    )
+    ap.add_argument("--split2", action="store_true",
+        help="双分镜模式（仅 colored-pencil）：总格数>6 时，第1格作封面单图（竖版3:4），"
+             "其余相邻两格拼成一张 1024x1536 双分镜图，中间用极淡浅灰色细线分隔。"
+             "也可在 story JSON 里用 \"split2\": true 开启。",
     )
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
@@ -389,51 +451,172 @@ def main() -> int:
     print(f"Style: {style}")
     print(f"Anchor: {anchor_path or '(none)'}")
     print(f"Output: {args.output_dir}")
+
+    # ---- 双分镜模式判定 ----
+    # 规则：仅 colored-pencil；总格数 >6 才启用；第1格作为封面单图（竖版3:4），
+    # 其余相邻两格拼成一张 1024x1536 双分镜图（中间极淡浅灰细线分隔）。
+    split2 = (args.split2 or bool(story.get("split2", False))) and style == "colored-pencil"
+    if split2:
+        split2 = len(panels) > 6
+        if args.split2 and len(panels) <= 6:
+            print("⚠️  split2 已开启但总格数≤6，回退为逐格单图。")
+    print(f"Split2(双分镜): {'ON' if split2 else 'OFF'}")
     print()
 
-    for i, panel in enumerate(panels):
-        pid = panel["id"]
+    # 生成清单：每项 (index, panel)。封面(index 0)单独处理，其余按双分镜分组。
+    # 分组：(1,2)(3,4)(5,6)...；若最后一组只有一格，则该格单独成图。
+    jobs = []
+    if split2:
+        jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
+        i = 1
+        while i < len(panels):
+            top = {"idx": i, "panel": panels[i]}
+            if i + 1 < len(panels):
+                jobs.append({"type": "double", "idx": i,
+                             "top": top, "bottom": {"idx": i + 1, "panel": panels[i + 1]}})
+                i += 2
+            else:
+                jobs.append({"type": "single", "idx": i, "panel": panels[i]})
+                i += 1
+    else:
+        jobs = [{"type": "single", "idx": i, "panel": panels[i]} for i in range(len(panels))]
+
+    def _render_prompt(panel, framing: str = "vertical") -> str | None:
         scene = panel["scene"]
-        out_path = os.path.join(args.output_dir, f"story_{pid}.jpeg")
-
-        if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
-            print(f"[{i+1}/{len(panels)}] {pid}: already exists, skipping")
-            continue
-
-        # 配方驱动：从模板填充占位符，禁止手改配方
-        # 【主体】= 画面场景描述，【文字】= 画进图里的中文（对话+旁白）
         text = panel.get("text", "")
         fill = {"主体": scene, "文字": text, **var_values}
+        if "构图" in set(PLACEHOLDER_PATTERN.findall(style_template)):
+            if framing == "square":
+                fill["构图"] = (
+                    "This image is ONE upper/lower half-panel of a two-panel vertical stack. "
+                    "Square canvas. The top quarter of this panel is clear blank whitespace reserved "
+                    "for a narration sentence. The subject occupies the lower three-quarters, drawn "
+                    "centered with balanced, uncrowded composition and generous negative space."
+                )
+            else:
+                fill["构图"] = (
+                    "Single vertical 3:4 canvas showing ONE narrative panel filling the whole image. "
+                    "The top portion of the canvas is a clear blank band reserved for a narration "
+                    "sentence. The subject is placed centered in the lower portion with balanced, "
+                    "uncrowded composition and generous negative space."
+                )
+        if "分镜结构" in set(PLACEHOLDER_PATTERN.findall(style_template)):
+            if framing == "square":
+                fill["分镜结构"] = (
+                    "This half-panel will be stacked with another, so keep its internal framing "
+                    "self-contained: subject not spilling toward the shared edge, a soft sheet-light "
+                    "separating the two panels, lighting and palette matched across both halves."
+                )
+            else:
+                fill["分镜结构"] = (
+                    "Cover/standalone image: full single frame, subject well inside the frame, "
+                    "no internal division, the whole canvas is one narrative panel."
+                )
         try:
-            style_prompt = render(style_template, fill)
+            return render(style_template, fill)
         except ValueError as e:
-            print(f"[{i+1}/{len(panels)}] {pid}: render error: {e}", file=sys.stderr)
-            continue
+            print(f"  render error: {e}", file=sys.stderr)
+            return None
 
-        # 锚点机制：第 2 格起用上一格输出作为画风参考，锁连续一致性
-        ref_anchor = None
+    def _anchor_for(idx: int) -> str | None:
         if anchor_path:
-            ref_anchor = anchor_path
-        elif i > 0:
-            prev_path = os.path.join(args.output_dir, f"story_{panels[i-1]['id']}.jpeg")
-            if os.path.isfile(prev_path):
-                ref_anchor = prev_path
+            return anchor_path
+        prev_path = os.path.join(args.output_dir, f"story_{panels[idx-1]['id']}.jpeg")
+        if idx > 0 and os.path.isfile(prev_path):
+            return prev_path
+        return None
 
-        print(f"[{i+1}/{len(panels)}] {pid}: generating...")
+    def _generate_unit(job, out_key) -> str | None:
+        """生成一个分镜单元，返回保存路径；失败返回 None。"""
+        idx = job["idx"]
+        panel = job["panel"]
+        pid = panel["id"]
+        scene = panel["scene"]
+        size = "1024x1024" if job.get("unit_size") == "square" else "1024x1536"
+        out_path = job.get("out_path") or os.path.join(args.output_dir, f"story_{pid}.jpeg")
+
+        if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
+            print(f"[{out_key}] {pid}: already exists, using existing")
+            return out_path
+
+        style_prompt = _render_prompt(panel, framing=("square" if job.get("unit_size") == "square" else "vertical"))
+        if style_prompt is None:
+            return None
+
+        print(f"[{out_key}] {pid}: generating ({size})...")
         sys.stdout.flush()
         t0 = time.time()
         try:
-            img_bytes = generate_panel(scene, style_prompt, api_url, api_key, ref_anchor)
+            img_bytes = generate_panel(scene, style_prompt, api_url, api_key,
+                                       _anchor_for(idx), size=size)
             with open(out_path, "wb") as f:
                 f.write(img_bytes)
             elapsed = time.time() - t0
             print(f"  ✅ {out_path} ({len(img_bytes)//1024}KB, {elapsed:.1f}s)")
+            return out_path
         except Exception as e:
             elapsed = time.time() - t0
             print(f"  ❌ failed ({elapsed:.1f}s): {e}")
+            return None
+
+    # 若已存在拼好的双分镜图，跳过整组（用于断点续跑）
+    composed_paths = []
+
+    for job in jobs:
+        if job["type"] == "cover":
+            # 封面必为单图（竖版3:4），不参与双分镜拼接
+            job["unit_size"] = "vertical"
+            _generate_unit(job, f"cover {job['idx']+1}")
+        elif job["type"] == "single":
+            job["unit_size"] = "vertical"
+            _generate_unit(job, f"single {job['idx']+1}")
+        elif job["type"] == "double":
+            top_idx = job["top"]["idx"]
+            bottom_idx = job["bottom"]["idx"]
+            top_pid = job["top"]["panel"]["id"]
+            bottom_pid = job["bottom"]["panel"]["id"]
+            composed = os.path.join(args.output_dir, f"story_split_{top_idx+1}_{bottom_idx+1}.jpeg")
+            if os.path.exists(composed) and os.path.getsize(composed) > 10000:
+                print(f"[double {top_idx+1}~{bottom_idx+1}]: already composed, using existing")
+                composed_paths.append(composed)
+                top_path = os.path.join(args.output_dir, f"story_{top_pid}.jpeg")
+                bottom_path = os.path.join(args.output_dir, f"story_{bottom_pid}.jpeg")
+                still_ok = (os.path.exists(top_path) and os.path.getsize(top_path) > 10000 and
+                            os.path.exists(bottom_path) and os.path.getsize(bottom_path) > 10000)
+                if not still_ok:
+                    continue
+                print(f"  ✅ {composed}")
+                continue
+
+            # 生成上下两个分镜单元（方形，以留足像素、减少拼图压缩损失）
+            top_job = {"idx": top_idx, "panel": job["top"]["panel"], "unit_size": "square"}
+            bottom_job = {"idx": bottom_idx, "panel": job["bottom"]["panel"], "unit_size": "square"}
+            top_path = _generate_unit(top_job, f"top {top_idx+1}")
+            bottom_path = _generate_unit(bottom_job, f"bottom {bottom_idx+1}")
+            if not top_path or not bottom_path:
+                print(f"⚠️  [double {top_idx+1}~{bottom_idx+1}]: 上下分镜未全部生成，跳过拼接")
+                continue
+
+            # 拼接：极淡浅灰细线分隔，竖版 3:4
+            try:
+                with open(top_path, "rb") as f:
+                    top_bytes = f.read()
+                with open(bottom_path, "rb") as f:
+                    bottom_bytes = f.read()
+                merged = compose_split2(top_bytes, bottom_bytes)
+                with open(composed, "wb") as f:
+                    f.write(merged)
+                composed_paths.append(composed)
+                print(f"  ✅ {composed} ({len(merged)//1024}KB, 双分镜拼接完成)")
+            except Exception as e:
+                print(f"  ❌ [double {top_idx+1}~{bottom_idx+1}] 拼接失败: {e}")
         sys.stdout.flush()
 
     print("\nDone! All panels saved to:", args.output_dir)
+    if composed_paths:
+        print("双分镜图：")
+        for p in composed_paths:
+            print(f"  - {p}")
     return 0
 
 

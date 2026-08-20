@@ -73,20 +73,41 @@ muted desaturated 莫兰迪 palette. 细腻彩铅叠色笔触, 自然手绘肌�
 
 【光影】. 【画纸】.
 
-Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines.
-Paper grain texture visible.
+【构图】
+
+Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines, no comic frames.
+Paper grain texture visible. Balanced uncluttered composition, subject not crowded against edges,
+full sharp colored-pencil detail, pencil stroke texture kept intact and uncompressed.
+
+【分镜结构】
+
 Quiet, lonely, restrained atmosphere with subtle hope.
-Minimalist indoor background. Large negative space at top for bold thick black hand-lettered Chinese text.
+
+The full-width clear blank band at the top of each narration area is reserved.
+Draw ONLY one short narration sentence there: centered, bold thick black hand-lettered Chinese.
+Single line ≤20 characters. Only at a key story turning point allow at most two lines ≤35 chars.
+Never write a whole page of text, no labels, no prefixes like "旁白" or "对话" or "字幕".
 
 SCENE: 【主体】
 
-Draw the following exact Chinese text directly into the image at the top blank area.
-Use bold, thick, black hand-lettered strokes. No labels, no prefixes like "旁白" or "对话" or "字幕".
-All Chinese text must be clearly readable, no garbled or fake characters.
+Draw the following exact Chinese text directly into the image in that top narration band.
+Use bold, thick, black, centered hand-lettered strokes. No labels, no prefixes.
+All Chinese text clearly readable, no garbled or fake characters.
 
 TEXT:
 【文字】
 ```
 
-约束：光影+画纸变量同一篇内锁定一套、跨篇轮换不重复；手写体文字是画面一部分；排线阴影而非色块；
-低饱和不鲜艳；中文必须清晰可读无乱码；配方不锁定角色外貌——人物由故事内容决定，各格保持一致即可。
+约束：
+- 光影+画纸变量同一篇内锁定一套、跨篇轮换不重复；双分镜模式下同一张图的上下两分镜、以及整套所有分镜与封面，都必须共用同一套光影+画纸，保证整篇氛围统一。
+- **双分镜标准（仅 colored-pencil，故事总格数>6 时自动启用）**：
+  - 单张竖版 3:4（1024x1536）画布内划分上下两个叙事画面。
+  - 分镜分隔用一条**极淡浅灰色细线**（约 #d9d9d9），**禁止粗黑漫画边框**。
+  - 每个分镜上方预留干净留白区，供旁白文字使用（见上方旁白规范）。
+  - 同一张图内上下两分镜光影色调统一；分镜构图均衡、元素不拥挤，彩铅手绘细节完整清晰、不压缩笔触质感。
+- **封面必为单图**，不能一图两格（封面用竖版单格完整构图，不同时容纳两格）。
+- 手写体文字是画面一部分（竖版单图写在画面上方留白区，声屏分镜写在每格顶部留白区）；排线阴影而非色块；
+- 低饱和不鲜艳；中文必须清晰可读无乱码；配方不锁定角色外貌——人物由故事内容决定，各格保持一致即可。
+- 默认旁白：单行短句（≤20字），每格顶部居中黑色粗体；特殊扩容最多两行、总字数≤35字，仅复杂剧情节点启用，不可通篇使用。
+
+minis_url: minis://skills/baicat/STYLES.md
