@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Batch generate comic story panels via GPT Image 2.
 
-配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【文字】【光影】【画纸】占位符，
-禁止手工缩写。支持连续分镜的画风一致性（style-anchor 参考图机制）。
+配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【光影】【画纸】占位符
+（以及 doodle 配方的【文字】占位符），禁止手工缩写。支持连续分镜的画风一致性
+（style-anchor 参考图机制）。colored-pencil 彩铅配方不含【文字】，生图不画文字只留白，旁白后期手动添加。
 
 抗同质化变量机制（V2，仅 colored-pencil 生效）：
   - STYLES.md 内置「光影氛围库」「画纸纹理库」共 6+5 套变量。
@@ -19,8 +20,8 @@ Usage:
 Split2 双分镜模式（仅 colored-pencil）：
   - 总格数 >6 时启用；第1格作封面单图（竖版3:4），其余相邻两格拼成一张
     1024x1536 双分镜图，中间用极淡浅灰细线（#d9d9d9）分隔，禁止粗黑漫画边框。
-  - 每个分镜上方预留干净留白放旁白；同一张图内上下两分镜光影色调统一；
-    分镜构图均衡不拥挤、彩铅细节完整、不压缩笔触质感。
+  - 每个分镜上方预留干净留白区，生图不画文字，旁白后期手动添加；同一张图内上下两分镜
+    光影色调统一；分镜构图均衡不拥挤、彩铅细节完整、不压缩笔触质感。
   - 封面必为单图，不能一图两格。
   - 开启方式：CLI `--split2` 或 story JSON `"split2": true`；≤6格自动回退逐格单图。
 
@@ -36,7 +37,7 @@ Story JSON format:
     {
       "id": "p1",
       "scene": "A girl sitting on a chair hugging knees...",   # 画面描述（英文）
-      "text": "旁白：等一个人。对话：你在哪？"                  # 画进图里的中文（必填）
+      "text": "等一个人。"   # 彩铅：不画进图（仅供情绪推断/剧情记录），生图只留白后期自加字；涂鸦：画进图里的中文
     }
   ]
 }
@@ -483,24 +484,32 @@ def main() -> int:
 
     def _render_prompt(panel, framing: str = "vertical") -> str | None:
         scene = panel["scene"]
-        text = panel.get("text", "")
-        fill = {"主体": scene, "文字": text, **var_values}
-        if "构图" in set(PLACEHOLDER_PATTERN.findall(style_template)):
+        fill = {"主体": scene, **var_values}
+        # 仅当配方含【文字】占位符才填充文字（doodle 涂鸦画字进图）；
+        # colored-pencil 彩铅配方已不含【文字】，生图只留白、不画字。
+        phs = set(PLACEHOLDER_PATTERN.findall(style_template))
+        if "文字" in phs:
+            fill["文字"] = panel.get("text", "")
+        if "构图" in phs:
             if framing == "square":
                 fill["构图"] = (
                     "This image is ONE upper/lower half-panel of a two-panel vertical stack. "
-                    "Square canvas. The top quarter of this panel is clear blank whitespace reserved "
-                    "for a narration sentence. The subject occupies the lower three-quarters, drawn "
-                    "centered with balanced, uncrowded composition and generous negative space."
+                    "Square canvas. The top quarter of this panel is clean blank whitespace reserved "
+                    "for a narration sentence that will be added later; leave it COMPLETELY EMPTY, "
+                    "do NOT draw any text, character, letter or watermark in it. "
+                    "The subject occupies the lower three-quarters, drawn centered with balanced, "
+                    "uncrowded composition and generous negative space."
                 )
             else:
                 fill["构图"] = (
                     "Single vertical 3:4 canvas showing ONE narrative panel filling the whole image. "
-                    "The top portion of the canvas is a clear blank band reserved for a narration "
-                    "sentence. The subject is placed centered in the lower portion with balanced, "
+                    "The top portion of the canvas is a clean blank band reserved for a narration "
+                    "sentence that will be added later; leave it COMPLETELY EMPTY, do NOT draw any "
+                    "text, character, letter or watermark in it. "
+                    "The subject is placed centered in the lower portion with balanced, "
                     "uncrowded composition and generous negative space."
                 )
-        if "分镜结构" in set(PLACEHOLDER_PATTERN.findall(style_template)):
+        if "分镜结构" in phs:
             if framing == "square":
                 fill["分镜结构"] = (
                     "This half-panel will be stacked with another, so keep its internal framing "
