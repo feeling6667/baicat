@@ -142,6 +142,41 @@ def pick_variant(seq_arg, unused_lists, lib_items, field_name, usage_key):
     return lib_items[idx - 1], idx
 
 
+def infer_lighting(all_texts: str) -> int | None:
+    """从故事文本推断最匹配的光影序号（1-6），推断不出返回 None。
+
+    按"渐进覆盖优先级"匹配：情绪/情景词从日常→释怀→扎心→怀旧→清醒 递进，
+    后命中的更强烈的情绪覆盖前面的（如"扎心"覆盖"温馨"）。
+    对应 STYLES.md「光影氛围库」的 6 套定位。
+    """
+    # (优先级, 光影序号, [触发词])
+    # 优先级：数字越大越靠后判定、越强，命中即覆盖低优先级
+    rules = [
+        # 6 室内顶光：清醒、释然、通透
+        (6, 6, ["释然", "清醒", "放下", "想通了", "悟了", "看开了", "终于明白", "明白了", "豁然开朗", "走出来", "释怀"]),
+        # 5 黄昏暖调：怀旧、多年回望
+        (5, 5, ["多年", "许多年", "多年后", "回望", "往昔", "那些年", "小时候", "老照片", "泛黄", "旧时光", "再见到", "重逢"]),
+        # 4 局部硬光：误会、紧张、扎心、转折
+        (4, 4, ["误会", "争吵", "扎心", "背叛", "欺骗", "真相", "转折", "反转", "狠心", "决裂", "心碎", "泪", "眼泪", "哭", "一巴掌", "擦肩"]),
+        # 3 弱冷调柔光：释怀、emo、反转结局（弱于4）
+        (3, 3, ["算了吧", "就这样", "深夜", "emo", "沉默", "失眠", "发呆", "空了", "落空", "酸涩", "空欢喜", "一厢情愿"]),
+        # 2 窗边侧逆光：回忆、暗恋、遗憾
+        (2, 2, ["回忆", "想起", "记得", "从前", "暗恋", "遗憾", "错过", "可惜", "没来得及", "如果", "要是"]),
+        # 1 柔和正面光：日常温馨
+        (1, 1, ["温馨", "日常", "平凡", "早上", "傍晚", "买菜", "做饭", "吃饭", "回家", "一起", "陪伴", "温暖", "阳光"]),
+    ]
+    best = 0
+    best_no = None
+    for pri, no, words in rules:
+        for w in words:
+            if w in all_texts:
+                if pri >= best:
+                    best = pri
+                    best_no = no
+                break
+    return best_no
+
+
 def load_usage() -> dict:
     if os.path.isfile(USAGE_PATH):
         try:
@@ -304,18 +339,36 @@ def main() -> int:
         unused = usage.setdefault("unused", {"lighting": [], "paper": []})
         lib_l = extract_library("光影氛围变量库")
         lib_p = extract_library("画纸纹理变量库")
-        # 同一篇内锁定一套：选中后两个都定死，避免脚本每格重新轮换
-        if lighting_seq is None and paper_seq is None:
-            # 首次进入本函数锁定；因 main 只在开头调用一次变量选择，天然整篇一致
-            pass
-        lit_desc, lit_idx = pick_variant(lighting_seq, unused, lib_l, "lighting", "lighting")
+
+        # 收集故事全文（title + 每格 scene + text），用于情绪推断
+        all_texts = " ".join(
+            f"{p.get('scene','')} {p.get('text','')}" for p in panels
+        ) + " " + str(story.get("title", ""))
+
+        # ---- 光影：手动指定 > 情绪自动推断 > 自动轮换 ----
+        if lighting_seq is None:
+            inferred = infer_lighting(all_texts)
+            if inferred is not None:
+                lit_desc, lit_idx = lib_l[inferred - 1], inferred
+                u = unused.get("lighting", [])
+                if inferred in u:
+                    u.remove(inferred)  # 从未用池剔除，避免后续轮换撞
+                print(f"[变量] 光影#{lit_idx}（情绪自动推断）: {lit_desc}")
+            else:
+                lit_desc, lit_idx = pick_variant(None, unused, lib_l, "lighting", "lighting")
+                print(f"[变量] 光影#{lit_idx}（自动轮换）: {lit_desc}")
+        else:
+            lit_desc, lit_idx = pick_variant(lighting_seq, unused, lib_l, "lighting", "lighting")
+            print(f"[变量] 光影#{lit_idx}（手动指定）: {lit_desc}")
+
+        # ---- 画纸：手动指定 > 自动轮换（画纸与情绪弱相关，直接轮换）----
         pap_desc, pap_idx = pick_variant(paper_seq, unused, lib_p, "paper", "paper")
+        print(f"[变量] 画纸#{pap_idx}: {pap_desc}")
+
         var_values = {
             "光影": lit_desc,
             "画纸": pap_desc,
         }
-        print(f"[变量] 光影#{lit_idx}: {lit_desc}")
-        print(f"[变量] 画纸#{pap_idx}: {pap_desc}")
         # 记录使用，供数据复盘表参考
         usage["history"] = usage.get("history", [])
         usage["history"].append({
