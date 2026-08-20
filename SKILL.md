@@ -80,7 +80,59 @@ Quiet, lonely, restrained atmosphere with subtle hope.
 SCENE: {画面描述}
 ```
 
+**Prompt 模板：**
+```
+A healing hand-drawn webcomic illustration with colored pencil and graphite texture,
+treated as a 写实彩铅手绘叙事插画 (realistic colored-pencil narrative illustration),
+muted desaturated 莫兰迪 palette. 细腻彩铅叠色笔触, 自然手绘肌理, 柔和阴影.
+复古米色画纸质感, 电影感叙事构图, 画面干净克制, 色彩淡雅不艳丽, 细节丰富, 8K高清.
+
+【光影】. 【画纸】.
+
+Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines.
+Paper grain texture visible.
+Quiet, lonely, restrained atmosphere with subtle hope.
+Minimalist indoor background. Large negative space at top for bold thick black hand-lettered Chinese text.
+
+SCENE: {画面描述}
+
+Draw the following exact Chinese text directly into the image at the top blank area.
+Use bold, thick, black hand-lettered strokes. No labels, no prefixes like "旁白" or "对话" or "字幕".
+All Chinese text must be clearly readable, no garbled or fake characters.
+
+TEXT:
+{中文文字}
+```
+
 **约束**：手写体文字是画面一部分（与涂鸦风格相反）；排线阴影而非色块；低饱和不鲜艳。
+
+---
+
+## 抗同质化变量机制（V2，重点）
+
+为规避抖音等平台把同一套画风判定为"AI 批量生图"，彩铅配方内置**光影 + 画纸变量**：
+
+- `【光影】`：6 套光影氛围（日常柔和 / 窗边逆光 / 冷调柔光 / 硬光 / 黄昏暖调 / 室内顶光），
+  存在 `STYLES.md` 的「光影氛围变量库」。
+- `【画纸】`：5 套画纸纹理（细颗粒米色 / 粗纹 / 泛黄斑驳 / 折痕磨损 / 哑光浅灰），
+  存在 `STYLES.md` 的「画纸纹理变量库」。
+
+**使用规则**：
+1. **同一篇内**：全程用同一套「光影+画纸」，保证单篇氛围统一（脚本自动锁死）。
+2. **跨篇**：脚本自动轮换最久未用的组合，并把记录写进 skill 根目录 `USAGE.json`，
+   尽量不重复最近用过的搭配 → 规避多篇参数完全一致。
+3. **手动指定**：story JSON 加 `"lighting": 3`（1-6）和 `"paper": 2`（1-5）；
+   或命令行 `--lighting 3 --paper 5`；也可传描述文本。
+4. **查库**：`python3 generate_story.py --list-variants` 可查看全部光影/画纸库。
+
+**二次加工**（消除流水线 AI 特征，每篇必做）：
+AI 出图后用醒图做轻量人工痕迹加工，详细 SOP 见
+`references/抗同质化手工流程.md`，每篇参数记录进 `references/数据复盘表.md`。
+核心就三点：参数微调（色温/阴影/颗粒/对比，数值打散）+ 空白处补少量彩铅排线 +
+边角放专属小标记（每篇换位置）。
+
+**数据复盘**：每篇发布后回填 `references/数据复盘表.md`，用首图划走率/完播率/评论量
+反向优化脚本与选题（判定标准见该文档末尾）。
 
 ---
 
@@ -113,8 +165,10 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 ```json
 {
   "title": "等",
-  "style": "doodle",
+  "style": "colored-pencil",
   "anchor": "optional/path/anchor.png",
+  "lighting": 3,          // 可选：光影变量 1-6；不填则自动轮换
+  "paper": 2,             // 可选：画纸变量 1-5；不填则自动轮换
   "panels": [
     {
       "id": "p1",
@@ -130,6 +184,7 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 }
 ```
 `anchor` 可选；不填则第 2 格起自动用上一格输出当画风参考。
+`lighting` / `paper` 可选；仅彩铅配方生效，不填由脚本自动轮换抗同质化。
 `text` 必填——文字直接画进图里，不要放在图外。
 
 脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】` 和 `【文字】` 占位符（配方驱动，不写死在脚本里，加画风只改 STYLES.md 不改脚本），逐格调用 GPT Image 2，保存为 `{output_dir}/story_p1.jpeg` 等。

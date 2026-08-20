@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Batch generate comic story panels via GPT Image 2.
 
-配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【文字】占位符，
+配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【文字】【光影】【画纸】占位符，
 禁止手工缩写。支持连续分镜的画风一致性（style-anchor 参考图机制）。
+
+抗同质化变量机制（V2，仅 colored-pencil 生效）：
+  - STYLES.md 内置「光影氛围库」「画纸纹理库」共 6+5 套变量。
+  - story JSON 可用 lighting / paper 字段指定（1-6 / 1-5 序号，或直接写描述文本）；
+    未指定时脚本自动轮换：同一篇内锁定一套，跨篇记入 skill 根目录 USAGE.json，
+    尽量不重复最近用过的组合，规避平台 AI 批量生图判定。
 
 Usage:
   python3 generate_story.py --story-json story.json --output-dir /var/minis/attachments
   python3 generate_story.py --story-json story.json --style colored-pencil
+  python3 generate_story.py --story-json story2.json --lighting 3 --paper 5
 
 Story JSON format:
 {
   "title": "等",
-  "style": "doodle",
+  "style": "colored-pencil",
   "anchor": "optional/path/anchor.png",   # 可选：画风锚点图，每格都传以保证多格一致
+  "lighting": 3,                          # 可选：光影序号 1-6；不填则自动轮换
+  "paper": 2,                             # 可选：画纸序号 1-5；不填则自动轮换
   "panels": [
     {
       "id": "p1",
@@ -40,6 +49,7 @@ import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skill 根目录
 STYLES_PATH = os.path.join(ROOT, "STYLES.md")
+USAGE_PATH = os.path.join(ROOT, "USAGE.json")  # 抗同质化变量使用记录
 PLACEHOLDER_PATTERN = re.compile(r"【([^】]+)】")
 
 
@@ -61,10 +71,93 @@ def extract_template(style_id: str) -> str:
 
 
 def list_styles() -> list[str]:
-    """列出 STYLES.md 中所有可用画风编号/名称。"""
+    """列出 STYLES.md 中所有可用画风编号/名称（排除变量库标题）。"""
     with open(STYLES_PATH, encoding="utf-8") as f:
         source = f.read()
-    return re.findall(r"^## (\S+)", source, re.MULTILINE)
+    titles = re.findall(r"^## (\S+)", source, re.MULTILINE)
+    return [t for t in titles if "变量库" not in t]
+
+
+def extract_library(lib_name: str) -> list[str]:
+    """从 STYLES.md 提取「光影氛围变量库」/「画纸纹理变量库」代码块。
+
+    返回条目列表，每项已去掉行首的 'N. ' 序号前缀。
+    """
+    with open(STYLES_PATH, encoding="utf-8") as f:
+        source = f.read()
+    heading = re.compile(
+        r"^## " + re.escape(lib_name) + r"(?:[^\n]*)\n.*?^```[^\n]*\n(.*?)^```",
+        re.MULTILINE | re.DOTALL,
+    )
+    match = heading.search(source)
+    if not match:
+        raise ValueError(f"STYLES.md 中不存在变量库 '{lib_name}'。")
+    items = []
+    for line in match.group(1).strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        item = re.sub(r"^\d+[\.、]\s*", "", line)
+        items.append(item)
+    return items
+
+
+def pick_variant(seq_arg, unused_lists, lib_items, field_name, usage_key):
+    """选择一个变量。
+
+    seq_arg: story JSON 或 CLI 传入的序号（int/str）+1 处理 / 描述文本 / None。
+    返回 (选中描述, 序号或 None)。
+    优先用指定；未指定则从未用池里轮换一个；池空则循环。
+    """
+    # 1) 显式指定
+    if seq_arg is not None:
+        if isinstance(seq_arg, str):
+            seq_arg = seq_arg.strip()
+            # 支持传描述文本
+            for it in lib_items:
+                if it == seq_arg or seq_arg in it:
+                    return it, lib_items.index(it) + 1
+            # 支持传带序号的字符串 "3" / "L3" / "光影3"
+            m = re.search(r"(\d+)", seq_arg)
+            if m:
+                idx = int(m.group(1)) - 1
+                if 0 <= idx < len(lib_items):
+                    return lib_items[idx], idx + 1
+                raise ValueError(f"{field_name} 序号越界: {seq_arg} (可用 1-{len(lib_items)})")
+            raise ValueError(f"无法解析 {field_name} 参数: {seq_arg}")
+        if isinstance(seq_arg, int):
+            idx = seq_arg - 1
+            if 0 <= idx < len(lib_items):
+                return lib_items[idx], seq_arg
+            raise ValueError(f"{field_name} 序号越界: {seq_arg} (可用 1-{len(lib_items)})")
+        raise ValueError(f"{field_name} 参数类型无效: {type(seq_arg)}")
+
+    # 2) 未指定 → 轮换：从未用池里挑
+    unused = unused_lists.get(usage_key, [])
+    if not unused:
+        # 池空则重置为全量（跨篇已全部用过一轮，重新开始）
+        unused = list(range(1, len(lib_items) + 1))
+    idx = unused.pop(0)
+    unused_lists[usage_key] = unused
+    return lib_items[idx - 1], idx
+
+
+def load_usage() -> dict:
+    if os.path.isfile(USAGE_PATH):
+        try:
+            with open(USAGE_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def save_usage(usage: dict) -> None:
+    try:
+        with open(USAGE_PATH, "w", encoding="utf-8") as f:
+            json.dump(usage, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
 
 
 def render(template: str, values: dict[str, str]) -> str:
@@ -137,7 +230,7 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Generate comic story panels (recipe-driven, supports style-anchor for consistency)"
+        description="Generate comic story panels (recipe-driven, supports style-anchor and anti-homogenization variants)"
     )
     ap.add_argument("--story-json", default=None, help="Path to story JSON file")
     ap.add_argument("--output-dir", default="/var/minis/attachments", help="Output directory")
@@ -147,13 +240,35 @@ def main() -> int:
         help="Style override (default: read from story JSON or 'doodle'). "
              "Available styles are listed with --list-styles.",
     )
+    ap.add_argument(
+        "--lighting", default=None, type=str,
+        help="Optional lighting variant: index (1-6) or description text. Anti-homogenization.",
+    )
+    ap.add_argument(
+        "--paper", default=None, type=str,
+        help="Optional paper-texture variant: index (1-5) or description text. Anti-homogenization.",
+    )
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
+    ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
 
     if args.list_styles:
         print("Available styles in STYLES.md:")
         for s in list_styles():
             print(f"  - {s}")
+        return 0
+
+    if args.list_variants:
+        try:
+            print("光影氛围库:")
+            for i, it in enumerate(extract_library("光影氛围变量库"), 1):
+                print(f"  {i}. {it}")
+            print("\n画纸纹理库:")
+            for i, it in enumerate(extract_library("画纸纹理变量库"), 1):
+                print(f"  {i}. {it}")
+        except ValueError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
         return 0
 
     if not args.story_json:
@@ -180,6 +295,38 @@ def main() -> int:
         print("Available styles:", ", ".join(list_styles()), file=sys.stderr)
         return 1
 
+    # ---- 抗同质化变量机制（仅对含【光影】【画纸】占位符的配方生效）----
+    var_values = {}
+    lighting_seq = args.lighting if args.lighting is not None else story.get("lighting")
+    paper_seq = args.paper if args.paper is not None else story.get("paper")
+    if "光影" in set(PLACEHOLDER_PATTERN.findall(style_template)):
+        usage = load_usage()
+        unused = usage.setdefault("unused", {"lighting": [], "paper": []})
+        lib_l = extract_library("光影氛围变量库")
+        lib_p = extract_library("画纸纹理变量库")
+        # 同一篇内锁定一套：选中后两个都定死，避免脚本每格重新轮换
+        if lighting_seq is None and paper_seq is None:
+            # 首次进入本函数锁定；因 main 只在开头调用一次变量选择，天然整篇一致
+            pass
+        lit_desc, lit_idx = pick_variant(lighting_seq, unused, lib_l, "lighting", "lighting")
+        pap_desc, pap_idx = pick_variant(paper_seq, unused, lib_p, "paper", "paper")
+        var_values = {
+            "光影": lit_desc,
+            "画纸": pap_desc,
+        }
+        print(f"[变量] 光影#{lit_idx}: {lit_desc}")
+        print(f"[变量] 画纸#{pap_idx}: {pap_desc}")
+        # 记录使用，供数据复盘表参考
+        usage["history"] = usage.get("history", [])
+        usage["history"].append({
+            "title": story.get("title", "untitled"),
+            "style": style,
+            "lighting": lit_idx,
+            "paper": pap_idx,
+            "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        })
+        save_usage(usage)
+
     # 画风锚点图（可选）：连续故事每格都传，锁多格画风一致
     anchor_path = story.get("anchor")
 
@@ -203,8 +350,9 @@ def main() -> int:
         # 配方驱动：从模板填充占位符，禁止手改配方
         # 【主体】= 画面场景描述，【文字】= 画进图里的中文（对话+旁白）
         text = panel.get("text", "")
+        fill = {"主体": scene, "文字": text, **var_values}
         try:
-            style_prompt = render(style_template, {"主体": scene, "文字": text})
+            style_prompt = render(style_template, fill)
         except ValueError as e:
             print(f"[{i+1}/{len(panels)}] {pid}: render error: {e}", file=sys.stderr)
             continue
