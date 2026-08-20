@@ -6,9 +6,11 @@
 
 占位符说明：
 - `【主体】`：单格画面场景描述（由故事脚本的 panel.scene 填入），必填。
-- `【文字】`（仅 doodle 涂鸦配方使用）：要画进图里的中文文字（对话气泡台词 + 旁白字幕），由 panel.text 填入。
-  生图时必须把这段中文写进 prompt，让 GPT Image 2 把文字画在图里，而不是放在图外。
-  **colored-pencil 彩铅配方不含此占位符** —— 彩铅生图**不画任何文字**，只留出顶部空白旁白区，文字由作者后期手动添加。
+- **两风格生图均不画文字**：doodle 涂鸦与 colored-pencil 彩铅配方都**不画任何文字**，
+  只在顶部留干净空白旁白区，文字（旁白/台词）由作者后期手动添加。
+  story JSON 的 `text` 字段仅作为剧情与光影情绪推断的记录，不写入生图 prompt。
+- `【光影】且含变量库`（仅 colored-pencil）：光影氛围变量，来自下方"光影氛围变量库"，
+  由 story JSON 的 `lighting` 字段指定或用库内轮换。**同一篇内所有格共用同一套，跨篇轮换。**
 - `【光影】且含变量库`（仅 colored-pencil）：光影氛围变量，来自下方"光影氛围变量库"，
   由 story JSON 的 `lighting` 字段指定或用库内轮换。**同一篇内所有格共用同一套，跨篇轮换。**
 - `【画纸】且含变量库`（仅 colored-pencil）：画纸纹理变量，来自下方"画纸纹理变量库"，
@@ -48,19 +50,16 @@ The ONLY color in the image is ONE bright red element.
 Sketchy, trembling, casual ink lines with unfinished edges and spontaneous linework.
 Minimalist Q-version character: big head small body, simple dot eyes, messy tousled hair.
 Lots of white negative space, centered subject in the LOWER portion of the image.
-The TOP THIRD of the image is deliberately left blank white space for hand-lettered Chinese text.
-Black hand-drawn Chinese characters in the top blank area, slightly wobbly and uneven like a casual diary note.
+The TOP THIRD of the image is deliberately left blank white space as a narration area.
+Keep this top blank band COMPLETELY EMPTY: do NOT draw any Chinese text, character, letter,
+label or watermark in the image. No narration, no subtitles, no handwriting — the narration
+will be added later by hand, so this reserved band must stay clean white and free of any marks.
 Diary-style emotional illustration, melancholic yet humorous mood.
-Speech bubbles are allowed: rough hand-drawn oval outlines with black text inside.
 
 SCENE: 【主体】
-
-TEXT IN IMAGE (draw these exact Chinese characters into the image, in speech bubbles or narration areas):
-【文字】
-All Chinese text must be clearly readable, hand-lettered in black, no garbled or fake characters.
 ```
 
-约束：每格只有一个红色元素；人物造型各格一致；文字写在画面上方留白区或对话气泡内；中文必须清晰可读无乱码。
+约束：每格只有一个红色元素；人物造型各格一致；**生图不画任何文字**，顶部留白区完全留空，旁白/台词由作者后期手动添加；若需对话气泡轮廓可后期绘制再填字。
 
 ---
 

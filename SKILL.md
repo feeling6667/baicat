@@ -32,7 +32,7 @@ description: "生成手绘涂鸦风格（doodle）漫画故事插画和多格条
 | 构图 | 条漫分镜式，主体居中，大量白底留白 |
 | 人物 | Q版简笔：头大身小，豆豆眼/黑点眼，凌乱卷发，面无表情→疲惫 |
 | 情绪 | 冷静、自嘲、略带讽刺，清醒中带孤独，轻微emo |
-| 文字 | **手写体黑色中文写在画面上方留白区**，也可用手绘对话气泡 |
+| 文字 | **生图不画字**，顶部留干净空白；旁白/台词由作者后期手动添加 |
 
 **Prompt 模板：**
 ```
@@ -42,15 +42,15 @@ The ONLY color in the image is ONE bright red element.
 Sketchy, trembling, casual ink lines with unfinished edges and spontaneous linework.
 Minimalist Q-version character: big head small body, simple dot eyes, messy tousled hair.
 Lots of white negative space, centered subject in the LOWER portion of the image.
-The TOP THIRD of the image is deliberately left blank white space for hand-lettered Chinese text.
-Black hand-drawn Chinese characters in the top blank area, slightly wobbly and uneven like a casual diary note.
+The TOP THIRD of the image is deliberately left blank white space as a narration area.
+Keep this top blank band Completely Empty: draw NO Chinese text, character or handwriting in the image.
+The narration will be added later by hand, so this reserved band must stay clean white and bare.
 Diary-style emotional illustration, melancholic yet humorous mood.
-Speech bubbles are allowed: rough hand-drawn oval outlines with black text inside.
 
 SCENE: {画面描述}
 ```
 
-**约束**：每格只有一个红色元素；人物造型各格一致；文字写在画面上方留白区或对话气泡内。
+**约束**：每格只有一个红色元素；人物造型各格一致；**生图不画任何文字**，顶部留白区完全留空，旁白/台词由作者后期手动添加（对话气泡轮廓可后期绘制再填字）。
 
 ---
 
@@ -72,8 +72,8 @@ A healing hand-drawn webcomic illustration with colored pencil and graphite text
 muted desaturated palette. Short-haired woman, back view or front view, wearing oversized
 blue shirt and dark pants, slender figure, calm expression with hint of sadness.
 Minimalist indoor background: white wall, corner or window. Large negative space at top
-for hand-lettered black Chinese text like diary narration. Loose hand-drawn lines, pencil
-hatching for shadows, no thick black outlines. Paper grain texture visible.
+kept completely blank as a narration area (draw NO text — narration added later by hand).
+Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines. Paper grain texture visible.
 Color scheme: grey-blue, off-white, dark brown, warm yellow.
 Quiet, lonely, restrained atmosphere with subtle hope.
 
@@ -92,19 +92,15 @@ muted desaturated 莫兰迪 palette. 细腻彩铅叠色笔触, 自然手绘肌�
 Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines.
 Paper grain texture visible.
 Quiet, lonely, restrained atmosphere with subtle hope.
-Minimalist indoor background. Large negative space at top for bold thick black hand-lettered Chinese text.
+Minimalist indoor background. A full-width clean blank band at the very top kept COMPLETELY
+EMPTY as a narration area — draw NO Chinese text, character or handwriting; the narration
+will be added later by hand, so this band must stay bare paper-colored and free of any marks.
 
 SCENE: {画面描述}
-
-Draw the following exact Chinese text directly into the image at the top blank area.
-Use bold, thick, black hand-lettered strokes. No labels, no prefixes like "旁白" or "对话" or "字幕".
-All Chinese text must be clearly readable, no garbled or fake characters.
-
-TEXT:
-{中文文字}
+```
 ```
 
-**约束**：手写体文字是画面一部分（与涂鸦风格相反）；排线阴影而非色块；低饱和不鲜艳。
+**约束**：**生图不画任何文字**，顶部留白区完全留空（与涂鸦一致），旁白由作者后期手动添加；排线阴影而非色块；低饱和不鲜艳。
 
 ---
 
@@ -195,9 +191,7 @@ AI 出图后用醒图做轻量人工痕迹加工，详细 SOP 见
 
 将用户主题拆成 6-10 格条漫分镜，每格包含：
 - **scene（画面）**：一句话描述场景动作（英文，填入配方的 `【主体】`）
-- **text（文字/旁白）**：
-  - **彩铅**：**不画进图里**。仅作为剧情与旁白内容记录，用于光影情绪推断；生图只留顶部空白，旁白由作者后期手动添加到图上。
-  - **涂鸦**：填入配方的 `【文字】`，**必须写进生图 prompt，让 GPT Image 2 把中文直接画在图里**。
+- **text（文字/旁白）**：**两风格均不画进图里**。仅作为剧情与旁白内容记录（并用于彩铅的光影情绪推断）；生图时两风格都只在顶部留干净空白区，旁白/台词由作者后期手动添加到图上。
 
 情绪线设计：从一个状态渐变到另一个状态（如：期待→麻木→释然）。
 
@@ -226,17 +220,17 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
     {
       "id": "p1",
       "scene": "A girl sitting on a chair hugging knees, quietly waiting. Red hair clip.",
-      "text": "等一个人。"    // 彩铅：不画进图，后期自加字（留白区）；涂鸦：画进图里
+      "text": "等一个人。"    // 两风格均不画进图，后期自加字（留白区）；用于情绪推断/剧情记录
     }
   ]
 }
 ```
 `anchor` 可选；不填则第 2 格起自动用上一格输出当画风参考。
 `lighting` / `paper` 可选；仅彩铅配方生效，不填由脚本自动轮换抗同质化。
-`text` 必填——涂鸦必须画进图里；彩铅不画进图，仅供情绪推断与旁白规划，生图只留白后期加字。
+`text` 必填——两风格均不画进图，仅供情绪推断与旁白规划，生图只留白后期加字。
 
-脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】`、彩铅的 `【构图】/【分镜结构】`、
-以及涂鸦的 `【文字】` 占位符（配方驱动，不写死在脚本里，加画风只改 STYLES.md 不改脚本），
+脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】`、彩铅的 `【构图】/【分镜结构】`
+占位符（配方驱动，不写死在脚本里，加画风只改 STYLES.md 不改脚本），
 逐格调用 GPT Image 2，保存为 `{output_dir}/story_p1.jpeg` 等。
 
 **画风一致性机制（连续分镜锁风格）**：
@@ -264,19 +258,19 @@ req.json 的 messages 里放完整 prompt（配方提取 + 填充后的文本）
 用 `templates/story_page.html` 模板生成最终 HTML 页面：
 - 替换 `{{TITLE}}` 为故事标题
 - 复制 panel 块，替换图片文件名
-- **竖排图片模式**：图片按顺序纵向排列。涂鸦文字已画进图里，HTML 不放文案；
-  彩铅页面图的旁白空白区由作者后期加字（HTML 可留图片下方放正文旁白/对话，即"信息分工"里的作品正文）。
+- **竖排图片模式**：图片按顺序纵向排列。**两风格生图均不画字**，图片顶部留白区由作者后期加字；
+  HTML 可留图片下方放正文旁白/对话（即"信息分工"里的作品正文）。
 - 图片放在与此 HTML 同一目录下
 
 ## 关键约束
 
-- **涂鸦文字画进图里** — 对话和旁白写进生图 prompt 的 `【文字】`，让 GPT Image 2 直接画在图里，不要放在图外；中文必须清晰可读无乱码（配方已写死 "no garbled or fake characters"）
-- **彩铅不画文字、留白后期加** — 彩铅生图**不画任何文字**，只在每格/每个分镜顶部留干净空白区，旁白由作者后期手动添加（按旁白排版规范：单行≤20字、复杂节点≤2行≤35字，顶部居中黑粗体）；生成的图是干净无字的底图
+- **两风格生图均不画文字、留白后期加** — doodle 涂鸦与 colored-pencil 彩铅生图都**不画任何文字**，
+  只在每格/每个分镜顶部留干净空白区；旁白/台词由作者后期手动添加（按旁白排版规范：单行≤20字、
+  复杂节点≤2行≤35字，顶部居中黑粗体；对话气泡若需要可后期绘制再填字）。生成的图是干净无字的底图。
 - **人物造型各格一致** — 同一故事内风格统一；连续分镜用 anchor 锚点图或逐格参考锁定
 - **彩铅>6格用双分镜** — 总格数>6 时启用 `split2`：1格封面单图 + 其余相邻两格拼一张 3:4 双分镜图（极淡浅灰细线分隔，禁止粗黑边框）；封面必为单图
 - **信息分工** — 画面 + 后期加的旁白承载主线骨架与视觉情绪；人物背景/对话/细节/完整逻辑放作品正文；正文结尾放开放式互动提问
 - **配方驱动** — 画风 prompt 存 `STYLES.md`，脚本只负责提取+填占位符，禁止手工缩写配方
 - **配方不锁角色** — 人物外貌由故事内容决定，配方不写死角色描述，各格保持一致即可
 - **留白为主** — 不要把画面填满
-- **涂鸦风格文字写在画面上方留白区或对话气泡内**；**彩铅风格顶部留白后期加字、画面本身不写字**
 - **涂鸦只有一种红色**；**彩铅低饱和多色但克制**

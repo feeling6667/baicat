@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Batch generate comic story panels via GPT Image 2.
 
-配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【光影】【画纸】占位符
-（以及 doodle 配方的【文字】占位符），禁止手工缩写。支持连续分镜的画风一致性
-（style-anchor 参考图机制）。colored-pencil 彩铅配方不含【文字】，生图不画文字只留白，旁白后期手动添加。
+配方驱动版：画风 prompt 从 STYLES.md 读取，自动填充【主体】【光影】【画纸】占位符，
+禁止手工缩写。支持连续分镜的画风一致性（style-anchor 参考图机制）。
+**两风格生图均不画文字**：doodle 与 colored-pencil 配方都不含【文字】，顶部留白区完全空白，
+旁白/台词由作者后期手动添加；story JSON 的 text 字段仅用于光影情绪推断与剧情记录。
 
 抗同质化变量机制（V2，仅 colored-pencil 生效）：
   - STYLES.md 内置「光影氛围库」「画纸纹理库」共 6+5 套变量。
@@ -37,7 +38,7 @@ Story JSON format:
     {
       "id": "p1",
       "scene": "A girl sitting on a chair hugging knees...",   # 画面描述（英文）
-      "text": "等一个人。"   # 彩铅：不画进图（仅供情绪推断/剧情记录），生图只留白后期自加字；涂鸦：画进图里的中文
+      "text": "等一个人。"   # 两风格均不画进图（仅供情绪推断/剧情记录），生图只留白，旁白后期手动添加
     }
   ]
 }
@@ -485,8 +486,8 @@ def main() -> int:
     def _render_prompt(panel, framing: str = "vertical") -> str | None:
         scene = panel["scene"]
         fill = {"主体": scene, **var_values}
-        # 仅当配方含【文字】占位符才填充文字（doodle 涂鸦画字进图）；
-        # colored-pencil 彩铅配方已不含【文字】，生图只留白、不画字。
+        # 两风格生图均不画字：doodle 与 colored-pencil 配方都不含【文字】占位符，
+        # text 仅用于情绪推断与旁白规划。此处保留"配方含【文字】才填充"逻辑，便于未来配方扩展。
         phs = set(PLACEHOLDER_PATTERN.findall(style_template))
         if "文字" in phs:
             fill["文字"] = panel.get("text", "")
