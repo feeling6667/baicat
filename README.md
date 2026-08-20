@@ -1,137 +1,96 @@
 # baicat
 
-> 一个**手绘涂鸦条漫故事生成器** Agent Skill。给一个故事主题，自动拆分镜、批量出图、拼装成可浏览的 HTML 图文故事页。两种风格：黑白涂鸦（丧系自嘲）与彩铅治愈（低饱和克制）。
+> 一个**图文故事重构 + 双风格条漫生成器** Agent Skill。先用叙事前置流程（核心诊断→定结局→编排并锁视觉基调）把故事想透、视觉基调定好，再直接出图，拼装成可浏览的 HTML 图文故事页。默认**彩铅治愈**，明确说"涂鸦"才切黑白丧系。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 这是什么
 
-抖音上"画一个故事"风格的手绘条漫很受欢迎，但每次都要手动拆分镜、逐张生图、再排版拼页，流程碎且重复。
+抖音上"画一个故事"风格的手绘条漫很受欢迎，但每次都要手动拆故事、反复纠结结局、再逐张生图排版，流程碎且重复。
 
-baicat 把这套流程沉淀成一个可复用的 Skill：**你只管给故事主题，baicat 负责剩下的全部**——
+**baicat 现已合并「观众介入图文故事」**，把"如何讲一个有停留、代入与讨论势能的故事"和"如何出图"沉淀成一个 Skill，四阶段手动推进：
 
-- 把主题拆成 6–10 格条漫分镜，每格配画面描述和短文案；
-- 设计情绪线（从一个状态渐变到另一个，如 期待→麻木→释然）；
-- 逐格调用 GPT Image 2 批量出图，画风配方驱动、多格一致；
-- 用 HTML 模板自动拼装成独立可浏览的故事页。
+1. **核心诊断** — 只挖出故事核心 + 异常封面句，不铺一堆字段；
+2. **结局设置** — 五种结局选一（真相反转/反常选择/余震定格/开放留白/立场句）；
+3. **图文编排** — 逐格拆分镜，**同步锁定彩铅的色调/质感/光晕**（光影+画纸序号），一次定型不返工；
+4. **彩铅生图** — 把分镜 + 锁定的视觉基调喂给脚本直接出图。
 
-**它直接产出图文成品**，不只是一段提示词。
+分阶段手动推进，每阶段做完即停、等确认，不抢跑。
 
 ## 两种风格
 
-| 中文名 | 英文名 | 调性 | 触发词 |
-|--------|--------|------|--------|
-| **涂鸦** | `doodle` | 黑白线稿 + 唯一红色点缀，Q版简笔，丧系自嘲，上方留白填手写文字 | 涂鸦、黑白涂鸦、丧系涂鸦 |
-| **彩铅** | `colored-pencil` | 低饱和高级灰，铅笔排线，真实比例，治愈克制 | 彩铅、彩色铅笔、治愈条漫 |
+| 中文名 | 英文名 | 调性 | 触发 |
+|--------|--------|------|------|
+| **彩铅（默认）** | `colored-pencil` | 低饱和高级灰，铅笔排线，真实比例，治愈克制 | 默认；或说"彩铅/彩色铅笔/治愈条漫" |
+| **涂鸦** | `doodle` | 黑白线稿 + 唯一红色点缀，Q版简笔，丧系自嘲 | 明确强调"涂鸦/黑白涂鸦/丧系涂鸦" |
 
-不指定风格时默认「涂鸦」。
+**默认彩铅直接出图**；只有明确强调"涂鸦"才切涂鸦。
 
 | | |
 |:---:|:---:|
-| <img src="examples/style-doodle.png" width="300"><br>**涂鸦** doodle<br>黑白线稿 + 红色点缀，Q版简笔 | <img src="examples/style-colored-pencil.png" width="300"><br>**彩铅** colored-pencil<br>低饱和高级灰，铅笔排线，治愈克制 |
+| <img src="examples/style-colored-pencil.png" width="300"><br>**彩铅** colored-pencil<br>低饱和高级灰，铅笔排线，治愈克制 | <img src="examples/style-doodle.png" width="300"><br>**涂鸦** doodle<br>黑白线稿 + 红色点缀，Q版简笔 |
 
-## 工作流
+## 工作流（四阶段手动推进）
 
-### 1. 确认风格
+> 每完成一阶段必须停下，等用户输入【继续】。禁止连续跳阶段。
 
-用户说"涂鸦"→ 风格 A；用户说"彩铅"→ 风格 B；未指定 → 询问或默认涂鸦。
-
-### 2. 写故事脚本
-
-将用户主题拆成 6–10 格条漫分镜，每格包含：
-- **画面**：一句话描述场景动作（英文，填入配方的 SCENE）
-- **文案**：短句（≤15字），涂鸦风格放图下，彩铅风格写在画面上
-
-情绪线设计：从一个状态渐变到另一个状态（如：期待→麻木→释然）。
-
-### 3. 批量生成图片
+1. **阶段1 核心诊断**：只输出「故事核心」+「异常封面句」两样，附 A/B/C/D 判定。
+2. **阶段2 结局设置**：主情绪 + 五种结局选一 + 收尾画面，附 3 行极简确认清单。
+3. **阶段3 图文编排**：先定视觉基调（光影#N/画纸#N，全篇统一），再逐格拆画面；text 即最终旁白（两风格生图均不画字，后期自加）；>6格且彩铅 → 启用双分镜。
+4. **阶段4 彩铅生图**：
 
 ```bash
 python3 scripts/generate_story.py \
   --story-json story.json \
   --output-dir ./output \
-  --style doodle
+  --style colored-pencil
 ```
 
 故事 JSON 格式：
 ```json
 {
   "title": "等",
-  "style": "doodle",
+  "style": "colored-pencil",
+  "lighting": 3,
+  "paper": 1,
+  "split2": true,
   "anchor": "optional/path/anchor.png",
   "panels": [
-    {"id": "p1", "scene": "A girl sitting on a chair hugging knees, quietly waiting. Red hair clip. Phone on table."},
-    {"id": "p2", "scene": "Same pose, calendar page flipped, sky dimmer."}
+    {"id": "p1", "scene": "A girl sitting on a chair hugging knees, quietly waiting.", "text": "等一个人。"}
   ]
 }
 ```
 
-脚本从 `STYLES.md` 读取对应画风的配方代码块，自动填充 `【主体】` 占位符，逐格调用 GPT Image 2，保存为 `story_p1.jpeg` 等。
+- `lighting`（1-6）/ `paper`（1-5）：**阶段3已锁定**；不填由脚本按情绪自动推断 / 跨篇轮换（抗同质化）。
+- `split2`：彩铅且总格数>6 时，第1格作封面单图，其余两两拼成 3:4 双分镜（极淡浅灰细线，禁粗黑边框）。
+- `anchor`：画风锚点图，锁多格画风一致；不填则第2格起用上一格输出参考。
+- `text`：两风格生图均**不画字**，仅作后期加字依据 + 彩铅光影情绪推断，生图只留顶部留白区。
 
-### 4. 组装图文故事页面
+## 抗同质化
 
-用 `templates/story_page.html` 模板生成最终 HTML 页面：
-- 替换 `{{TITLE}}` 为故事标题
-- 复制 panel 块，替换图片文件名和文案
-- 涂鸦风格：红色文案用 `<span class="red">` 包裹，文案在图下
-- 彩铅风格：文案直接写在图上方区域，用手写体 CSS
+- 光影 6 套 + 画纸 5 套变量（存 `STYLES.md`），同一篇锁一套、跨篇轮换，组合记录进 `USAGE.json`。
+- 出图后用醒图做人工痕迹二次加工（`references/抗同质化手工流程.md`），每篇回填 `references/数据复盘表.md`。
 
 ## 用法示例
 
 对 AI Agent 说：
 
 ```
-用涂鸦风格画一个故事，主题是"等一个人"
+帮我做一篇图文故事：一个单亲妈妈深夜加班，孩子等不到她睡着在楼道
 ```
 
 ```
-用彩铅风格做个漫画故事，讲深夜加班回家路上的心情
+用彩铅风格，画"等一个人"的故事
 ```
 
 ```
-画一个故事（默认涂鸦风格）
-```
-
-### 列出可用画风
-
-```bash
-python3 scripts/generate_story.py --list-styles
-# Available styles in STYLES.md:
-#   - doodle
-#   - colored-pencil
+用涂鸦风格做个漫画
 ```
 
 ## 配方驱动 & 画风一致性
 
-### 配方驱动
-
-画风 prompt 存在 `STYLES.md` 配方库中，脚本只负责提取配方 + 填充占位符，**禁止手工缩写或同义改写**。新增画风只需在 `STYLES.md` 加一段配方，不改脚本代码：
-
-```markdown
-## my-new-style 我的风格
-
-```
-这里是该画风的完整 prompt 模板。
-SCENE: 【主体】
-```
-```
-
-### 画风锚点（多格一致性）
-
-连续分镜的画风一致性是条漫的核心难题。baicat 支持 **anchor 锚点图机制**：
-
-- 故事 JSON 可选 `anchor` 字段，指定一张画风锚点图；
-- 设定后每格生成都把它作为 style-only 参考传入，锁定多格画风一致（只继承线条/配色/比例/氛围，不复制人物服装站位）；
-- 未指定 anchor 时，第 2 格起自动用上一格输出作为参考，保证连贯。
-
-```json
-{
-  "title": "深夜归途",
-  "style": "colored-pencil",
-  "anchor": "examples/style-colored-pencil.png",
-  "panels": [...]
-}
-```
+- **配方驱动**：画风 prompt 存 `STYLES.md`，脚本只提取配方 + 填占位符，禁止手工缩写或同义改写。新增画风只需在 `STYLES.md` 加一段配方。
+- **多格一致**：`anchor` 锚点图机制锁定连续分镜画风统一；未指定时第2格起用上一格输出作参考。
 
 ## 环境变量
 
@@ -140,45 +99,45 @@ SCENE: 【主体】
 | `IMAGE_API_URL` | 生图 API 地址（如 `https://host/v1`） |
 | `OPENAI_API_KEY` | API 密钥 |
 
+`IMAGE_API_URL` 未设时，脚本可改用 `minis-model-use run --model gpt-image-2 --endpoint images-gen` 路线。
+
 ## 目录结构
 
 ```
 baicat/
 ├── README.md                      # 本文件
-├── SKILL.md                       # Skill 指令（风格定义 + 工作流 + 约束）
-├── STYLES.md                      # 画风配方库（配方驱动，加画风只改这里）
+├── SKILL.md                       # Skill 指令（四阶段叙事流程 + 风格定义 + 生成工作流 + 约束）
+├── STYLES.md                      # 画风配方库 + 光影/画纸变量库（加画风只改这里）
 ├── LICENSE
 ├── scripts/
-│   └── generate_story.py          # 配方驱动批量生图脚本
+│   └── generate_story.py          # 配方驱动批量生图脚本（支持 lighting/paper/split2）
 ├── templates/
 │   └── story_page.html            # 图文故事 HTML 模板
+├── references/
+│   ├── 抗同质化手工流程.md          # 醒图二次加工 SOP
+│   └── 数据复盘表.md               # 发布数据复盘
 └── examples/
-    ├── style-doodle.png           # 涂鸦风格示例
-    └── style-colored-pencil.png   # 彩铅风格示例
+    ├── style-colored-pencil.png
+    └── style-doodle.png
 ```
 
 ## 接入方式
 
-### Minis / Claude Code / 任意支持 SKILL.md 的 Agent
-
 ```bash
 git clone https://github.com/feeling6667/baicat.git
 ```
-
-把仓库放到 skills 目录（如 `/var/minis/skills/baicat/`），Agent 会自动识别 `SKILL.md` 并在用户说"画一个故事"时触发。
-
-### 其他工具
-
-把 `SKILL.md` 的内容粘进系统提示词 / 规则文件，把 `scripts/` 和 `templates/` 拷进项目即可。
+放到 skills 目录（如 `/var/minis/skills/baicat/`），Agent 自动识别 `SKILL.md`。
 
 ## 设计原则
 
-- **直接产出图文成品**——不只是提示词，而是从故事到可浏览 HTML 页面的端到端链路。
-- **配方驱动**——画风 prompt 存 `STYLES.md`，脚本只提取不缩写，保证画风不漂移。
-- **多格一致**——anchor 锚点图机制锁定连续分镜的画风统一。
-- **留白为主**——不要把画面填满，给情绪留呼吸空间。
-- **涂鸦上方留白填字、彩铅文字入画**——两种风格都支持图中文字，但布局不同：涂鸦在上三分之一留白区填手写中文，彩铅文字融入画面氛围。
+- **先讲透再画**：故事核、结局、视觉基调都在出图前定好，不返工。
+- **逻辑优先于效果**：反转/留白/情绪不能让位于逻辑漏洞。
+- **直接产出图文成品**：从故事到可浏览 HTML 页面的端到端链路。
+- **配方驱动**：画风 prompt 存 `STYLES.md`，脚本不缩写，画风不漂移。
+- **留白为主**：生图不画字，顶部留白区后期加字，给情绪留呼吸空间。
 
 ## License
 
 [MIT](LICENSE) © feeling6667
+
+minis_url: minis://skills/baicat/README.md
