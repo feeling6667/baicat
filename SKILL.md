@@ -294,7 +294,12 @@ SCENE: 【主体】
 - 2+3、4+5、6+7 → `story_split_<a>_<b>.jpeg`：双分镜图（1024×1536）
 - 末尾多余1格 → 单独成图
 
-**旁白排版规范（后期手动添加）**：首选单行短句（≤20字）、每格顶部居中黑色粗体；特殊扩容最多两行、总字数≤35字，仅复杂剧情节点启用，不可通篇使用。
+**旁白排版规范**：首选单行短句（≤20字）、每格顶部居中黑色粗体；特殊扩容最多两行、总字数≤35字，仅复杂剧情节点启用，不可通篇使用。
+
+> **确定性加字（推荐，替代手动画字）**：出图后可直接用 `scripts/letter_baicat.py` 脚本，
+> 按每格文字清单（manifest）把旁白以 Noto Sans CJK 简体黑粗体、顶部居中、逐字确定性地
+> 绘制进留白区，并生成 ledger 校验（缺字 / 超 20 字 / 超 2 行或 35 字 / 放不下 均会报错）。
+> 用法见「确定性加字」小节与 `references/lettering-manifest.example.json` 模板。
 
 **信息分工**：
 - 画面 + 后期加的旁白：承载**主线骨架**与视觉情绪。
@@ -333,6 +338,39 @@ SCENE: 【主体】
 - split2 双分镜模式：每个分镜单元单独 `1024x1024` 方形高清生成，再 Pillow 拼接为 `1024x1536`（中间 #d9d9d9 淡灰细线）。
 
 **IMAGE_API_URL 未设时的替代路线**：改用 `minis-model-use run --model gpt-image-2 --endpoint images-gen --input req.json --output out.png`（req.json 的 messages 放完整 prompt，generation_config 放 size/n）。
+
+### 3.5 确定性加字（`letter_baicat.py`）
+
+出图后给每张图的留白区确定性加旁白，逐字对准、可复现、可审计：
+
+```bash
+python3 /var/minis/skills/baicat/scripts/letter_baicat.py --manifest letter.json
+```
+
+manifest 结构（示例见 `references/lettering-manifest.example.json`）：
+```json
+{
+  "font_file": "/usr/share/fonts/noto/NotoSansCJK-Bold.ttc",
+  "font_index": 2,                     // 简体中文粗体
+  "image_root": "<输出目录>",
+  "images": [
+    { "file": "story_split_2_3.jpeg", "layout": "split2",
+      "texts": ["旁白二", "旁白三"] },   // split2=双分镜(上→下)；single=单图
+    { "file": "story_p8.jpeg", "layout": "single", "texts": ["旁白八"] }
+  ]
+}
+```
+
+自动能力：
+- **自适应定位留白区**（亮度检测，无需手填坐标，兼容单图/双分镜/真实纸纹理）
+- **逐字字形检查**：缺字报错，不画豆腐块
+- **规范校验**：单行>20字、两行>35字、>2行、留白放不下 → 均报错并给出提示
+- **自动缩字号**：长文本会缩到能放进留白带（下限 26px）
+- 每个字符用 `NotoSansCJK-Bold` index=2（简体粗体黑色），顶部居中
+
+产物：`<原名>_lettered.jpg`（带字成品，保留无字底图）+ 同名 `.ledger.json`（记录源图哈希/字体/字号/坐标）。
+
+> 未装中文字体时先 `apk add font-noto-cjk`，或 manifest 用 `font_file` 指定其它 CJK 字体路径。
 
 ### 4. 组装图文故事页面
 用 `templates/story_page.html` 生成最终 HTML：替换 `{{TITLE}}`、复制 panel 块、替换图片文件名、竖排图片模式；两风格生图均不画字，图片顶部留白区后期加字，HTML 可在图片下方放正文旁白/对话（信息分工）。图片与 HTML 同目录。

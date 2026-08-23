@@ -1,0 +1,30 @@
+{
+  "说明": "baicat 确定性加字 manifest 模板。复制此文件，填选字体与每张图的旁白文字后运行 letter_baicat.py",
+  "font_file": "/usr/share/fonts/noto/NotoSansCJK-Bold.ttc",
+  "font_index": 2,
+  "font_color": "#20201e",
+  "font_size": 46,
+  "image_root": ".",
+  "out_suffix": "_lettered",
+  "images": [
+    {
+      "说明": "双分镜图：texts 按『上分镜→下分镜』顺序，单行各≤20字",
+      "file": "story_split_2_3.jpeg",
+      "layout": "split2",
+      "font_size": 46,
+      "texts": ["等一个人", "她还在等"]
+    },
+    {
+      "说明": "单图(封面/首格/末尾单格)：texts 放 1 段",
+      "file": "story_p8.jpeg",
+      "layout": "single",
+      "texts": ["天亮了"]
+    },
+    {
+      "说明": "双分镜含一处复杂剧情节点时用两行，两行总字数≤35字",
+      "file": "story_split_4_5.jpeg",
+      "layout": "split2",
+      "texts": ["她把钥匙推回来，\n在桌上轻轻敲了两下", "她笑了"]
+    }
+  ]
+}
