@@ -312,6 +312,36 @@ SCENE: 【主体】
 
 ---
 
+## 整页多格模式（multipanel，可选）
+
+**定位**：在"一图两格双分镜"之外，提供第三种构图——**一张 3:4 图装 3-5 格**，适合故事更长、
+想让观众"一屏吃到更多观点"、降低逐格滑动流失的场景。**保留一图两格双分镜，二者互斥可切换**。
+
+**适用**：仅彩铅；**需要显式开启**（story JSON `"multipanel": true` 或 CLI `--multipanel`），
+总格数 ≥5 才真正启用；否则回退逐格单图。不写该字段就走原有双分镜/单图逻辑，完全兼容。
+
+**排布风格**（两种都保留）：
+- **free 自由艺术版（默认）**：非等分节奏 + 微旋转 + 留白错落，像有设计感的漫画页而非批量卡片网格。
+- **regular 规整节奏版（降级）**：非等分但无旋转，顶部主格 + 下方小格，稳、平台兼容强。
+- **自动降级**：free 布局拼接多次失败时自动回退 regular，保证出图不中断。
+- 指定方式：story JSON `"multipanel_style": "free|regular"` 或 CLI `--mp-style`。
+
+**格数范围与分页**：每页装 **3-5 格**；超过 5 格自动拆多页（如 8 格 → 封面 + 2 页，每页 4 格；
+7 格 → 封面 + 2 页各 3 格）。封面（首格）始终单独出单图。
+
+**产物结构（7 格为例）**：
+- 封面 → `story_<id>.jpeg`（单图）
+- 每页 → `story_page_<n>.jpeg`（1024×1536 整页多格）
+- 分镜单元保留 → `story_<pid>.jpeg`（方形，供审计/加字）
+
+**技术实现**：每格仍 1024×1024 高清单独生成（保细节、不压缩笔触），`compose_multipanel()`
+按布局模板（`scripts/multipanel_layouts.py`）缩放/旋转/覆盖裁切拼进整页，光影画纸整篇统一。
+
+**加字**：`letter_baicat.py --auto` 已支持 multipanel——对该页各分镜单元逐个确定性加字、
+再按 same 布局拼成带字整页（比在整页图上定位留白更可靠）。
+
+---
+
 ## 生成工作流
 
 ### 1. 确认风格
@@ -378,8 +408,8 @@ manifest 结构（示例见 `references/lettering-manifest.example.json`）：
 python3 /var/minis/skills/baicat/scripts/letter_baicat.py \
   --auto --story-json story.json --output-dir <产物目录>
 ```
-自动识别：封面(首格,single)、双分镜(split2 上下两行)、末尾多余单格(single)，
-把 story JSON 里每个 panel 的 `text` 填进对应分镜，批处理整套图。
+自动识别：封面(首格,single)、双分镜(split2 上下两行)、整页多格(multipanel 各分镜单元)、
+末尾多余单格(single)，把 story JSON 里每个 panel 的 `text` 填进对应分镜，批处理整套图。
 也可用 manifest 的 `"auto": true` + `"story_json"` + `"output_dir"` 字段等价触发。
 
 ### 4. 组装图文故事页面

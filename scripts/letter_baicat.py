@@ -43,6 +43,14 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
+# 整页多格拼图依赖（与 generate_story 共用 compose_multipanel / get_templates）
+try:
+    from generate_story import compose_multipanel
+    from multipanel_layouts import get_templates
+    _MP_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _MP_AVAILABLE = False
+
 MIN_FONT_SIZE = 26          # 最小可接受字号（再小就报错让用户精简）
 DEFAULT_FONT_SIZE = 46      # 初始口号
 SAMPLE_STEP = 4             # 亮度采样步长（每 STEP 像素取一行检测）
@@ -286,8 +294,79 @@ def letter_image(
     font_index: int,
     color: tuple[int, int, int],
     out_suffix: str,
+    mp_units: list[Path] | None = None,
 ) -> None:
-    """对单张已生成的无字图确定性加字。layout: single|split2。"""
+    """对已生成的图确定性加字。layout: single|split2|multipanel。
+
+    multipanel（整页多格）：不直接改整页图，而是对分镜单元逐个加字，再用
+    compose_multipanel 按布局拼成带字整页。mp_units 为该页分镜单元路径列表。
+    """
+    if layout == "multipanel":
+        if not _MP_AVAILABLE:
+            raise LetterError("import generate_story/multipanel_layouts 失败，无法做整页多格加字")
+        if not mp_units or len(mp_units) != len(texts):
+            raise LetterError(
+                f"multipanel 加字需要 mp_units(单元路径)与 texts 数量一致: 单元={len(mp_units or [])} 文字={len(texts)}"
+            )
+        # 对每个分镜单元单独加字到底部留白，再拼成带字整页
+        lettered_units: list[bytes] = []
+        for up, ttext in zip(mp_units, texts):
+            if not up.is_file():
+                raise LetterError(f"multipanel 分镜单元不存在: {up}")
+            img = Image.open(up).convert("RGB")
+            w, h = img.size
+            band = find_top_blank_band(img, 0, int(h * 0.5))
+            if band is None:
+                raise LetterError(f"{up}: 未检测到顶部留白区，无法放置文字")
+            valid, size, lines, font = fit_text_block(
+                ttext, font_file, font_index, band, w, DEFAULT_FONT_SIZE
+            )
+            render_lines(img, lines, font, band, color, size)
+            print(f"    {up.name}: {ttext!r} (字号{size}px)")
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            lettered_units.append(buf.getvalue())
+
+        # 布局：优先 free，失败降级 regular（与生成端一致）
+        n = len(texts)
+        merged = None
+        used_style = None
+        for st in (["regular"] if os.environ.get("MP_STYLE") == "regular" else ["free", "regular"]):
+            for tmpl in get_templates(n, st):
+                try:
+                    merged = compose_multipanel(lettered_units, tmpl)
+                    used_style = st
+                    break
+                except Exception:  # noqa: BLE001
+                    merged = None
+            if merged is not None:
+                break
+        if merged is None:
+            raise LetterError(f"multipanel 所有布局尝试均失败（{n}格）")
+
+        out_name = src.stem + out_suffix + ".jpeg"
+        out_path = src.with_name(out_name)
+        tmp = out_path.with_name(out_path.stem + ".tmp.png")
+        with open(tmp, "wb") as f:
+            f.write(merged)
+        os.replace(tmp, out_path)
+
+        ledger = {
+            "source_page": str(src),
+            "source_units": [str(u) for u in mp_units],
+            "output": str(out_path),
+            "font_file": font_file,
+            "font_index": font_index,
+            "font_color": list(color),
+            "layout": "multipanel",
+            "style": used_style,
+            "images_texts": texts,
+        }
+        with open(out_path.with_suffix(".ledger.json"), "w", encoding="utf-8") as f:
+            json.dump(ledger, f, ensure_ascii=False, indent=2)
+        print(f"  ✅ {out_path} (整页多格 {n}格, {used_style})")
+        return
+
     img = Image.open(src).convert("RGB")
     w, h = img.size
     print(f"[+字] {src}  {w}x{h}  layout={layout}")
@@ -353,6 +432,32 @@ def parse_font_color(raw: Any) -> tuple[int, int, int]:
     return (30, 30, 30)
 
 
+def _split_pages_mp(n: int, min_p=3, max_p=5) -> list[int]:
+    """把 n 个分镜切成若干页，每页 3-5 格，尽量贴近 4 格/页（与 generate_story 逻辑一致）。"""
+    if n <= 0:
+        return []
+    if n <= max_p:
+        return [n]
+    # 目标每页 4 格
+    pages_n = max(1, round(n / 4))
+    base, rem = divmod(n, pages_n)
+    sizes = [base + 1 if i < rem else base for i in range(pages_n)]
+    # 校验：若出现 <min_p 或 >max_p 的页，兜底用贪婪切成 3-5 块
+    if all(min_p <= s <= max_p for s in sizes) and sum(sizes) == n:
+        return sizes
+    rebuilt = []
+    t = n
+    while t > 0:
+        take = min(max_p, t)
+        if t - take == 1:  # 避免最后剩 1
+            take -= 1
+        if take < 1:
+            take = 1
+        rebuilt.append(take)
+        t -= take
+    return rebuilt
+
+
 def build_auto_manifest(
     story_path: Path,
     output_dir: Path,
@@ -371,6 +476,7 @@ def build_auto_manifest(
         raise LetterError(f"story JSON 无 panels: {story_path}")
 
     split2 = bool(story.get("split2", False)) and len(panels) > 6
+    multipanel = bool(story.get("multipanel", False)) and len(panels) >= 5
 
     images: list[dict[str, Any]] = []
     seen: dict[tuple, int] = {}  # (layout, file) -> 已分配的 texts 长度
@@ -384,7 +490,31 @@ def build_auto_manifest(
     else:
         print(f"⚠️  封面文件未找到，跳过: {cover_f}")
 
-    if split2:
+    if multipanel:
+        # 整页多格：story_page_<n>.jpeg 每页装 3-5 格，按 _split_pages 映射。
+        # 用分镜单元(方形)逐个加字再拼，比在整页图上定位留白更可靠。
+        rest = list(range(1, len(panels)))
+        pages = _split_pages_mp(len(rest))
+        cursor = 0
+        for page_no, page_size in enumerate(pages, 1):
+            idxs = rest[cursor:cursor + page_size]
+            cursor += page_size
+            fname = f"story_page_{page_no}.jpeg"
+            fpath = image_root / fname
+            units = [str(image_root / f"story_{panels[i]['id']}.jpeg") for i in idxs]
+            if fpath.is_file():
+                texts = [panels[i].get("text", "") for i in idxs]
+                images.append({"file": fname, "layout": "multipanel",
+                               "texts": texts, "mp_units": units})
+            else:
+                # 整页文件可能是由单元拼出的；若不强制整页存在，直接按单元加字也可。
+                if all(Path(u).is_file() for u in units):
+                    images.append({"file": f"story_page_{page_no}.jpeg",
+                                   "layout": "multipanel",
+                                   "texts": texts, "mp_units": units})
+                else:
+                    print(f"⚠️  整页{page_no}的分镜单元不全，跳过: {units}")
+    elif split2:
         # 双分镜：第2格起两两配对
         i = 1
         while i < len(panels):
@@ -466,7 +596,11 @@ def main() -> int:
             continue
         layout = args.layout or it.get("layout", "single")
         texts = it.get("texts", [])
-        letter_image(src, layout, texts, font_file, font_index, color, out_suffix)
+        mp_units = None
+        if layout == "multipanel":
+            mp_units = [Path(image_root) / str(u) for u in (it.get("mp_units") or [])]
+        letter_image(src, layout, texts, font_file, font_index, color, out_suffix,
+                     mp_units=mp_units)
 
     return 0
 

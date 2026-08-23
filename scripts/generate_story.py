@@ -26,6 +26,13 @@ Split2 双分镜模式（仅 colored-pencil）：
   - 封面必为单图，不能一图两格。
   - 开启方式：CLI `--split2` 或 story JSON `"split2": true`；≤6格自动回退逐格单图。
 
+Multipanel 整页多格模式（可选，与 split2 互斥）：
+  - 仅 colored-pencil；需显式开启（CLI `--multipanel` 或 story JSON `"multipanel": true`）。
+  - 总格数 ≥5 才启用；每页装 3-5 格，超 5 格自动拆多页；封面(首格)单独出单图。
+  - 默认 free（自由艺术版，非等分+微旋转）；free 拼接多次失败自动降级 regular（规整节奏版）。
+  - 指定风格：story JSON `"multipanel_style": "free|regular"` 或 CLI `--mp-style`。
+  - 产物：story_page_<n>.jpeg（整页 1024x1536）+ story_<pid>.jpeg（分镜单元，供加字/审计）。
+
 Story JSON format:
 {
   "title": "等",
@@ -33,7 +40,9 @@ Story JSON format:
   "anchor": "optional/path/anchor.png",   # 可选：画风锚点图，每格都传以保证多格一致
   "lighting": 3,                          # 可选：光影序号 1-6；不填则自动轮换
   "paper": 2,                             # 可选：画纸序号 1-5；不填则自动轮换
-  "split2": true,                         # 可选：双分镜模式（总格数>6才真正生效）
+  "split2": true,                         # 可选：双分镜模式（总格数>6才真正生效，与 multipanel 互斥）
+  "multipanel": false,                    # 可选：整页多格模式（总格数>=5才真正生效）
+  "multipanel_style": "free",             # 可选：整页多格风格 free/regular
   "panels": [
     {
       "id": "p1",
@@ -58,6 +67,58 @@ import sys
 import time
 import urllib.request
 from io import BytesIO
+
+# 整页多格布局模板（仅 colored-pencil --multipanel 使用）
+try:
+    from multipanel_layouts import get_templates  # 与脚本同目录
+except Exception:  # noqa: BLE001
+    try:
+        from baicat.scripts.multipanel_layouts import get_templates
+    except Exception:  # noqa: BLE001
+        get_templates = None
+
+
+def _split_pages(n: int, min_p=3, max_p=5) -> list[int]:
+    """把 n 个分镜切成若干页，每页 3-5 格，尽量贴近 4 格/页。"""
+    if n <= 0:
+        return []
+    if n <= max_p:
+        return [n]
+    # 页数目标：每页 4 格（居中）
+    pages_n = max(1, round(n / 4))
+    base, rem = divmod(n, pages_n)
+    sizes = [base + 1 if i < rem else base for i in range(pages_n)]
+    # 修正：把 <min_p 的页合并/重分配
+    while any(s < min_p for s in sizes):
+        rebuilt = []
+        carry = 0
+        for s in sizes:
+            s += carry
+            if s >= max_p:
+                rebuilt.append(max_p)
+                carry = s - max_p
+            elif len(rebuilt) < pages_n and s + 0 >= min_p and carry == 0:
+                rebuilt.append(s)
+                carry = 0
+            else:
+                rebuilt.append(min_p)
+                carry = s - min_p
+        sizes = rebuilt if sum(rebuilt) == n else sizes
+        if all(min_p <= s <= max_p for s in sizes) and sum(sizes) == n:
+            break
+        # 兜底：暴力从 max_p 往下切
+        sizes = []
+        t = n
+        while t > 0:
+            take = min(max_p, t)
+            if t - take == 1:  # 避免最后剩 1
+                take -= 1
+            if take < 1:
+                take = 1
+            sizes.append(take)
+            t -= take
+        break
+    return sizes
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skill 根目录
@@ -322,6 +383,79 @@ def compose_split2(top_bytes: bytes, bottom_bytes: bytes,
     return buf.getvalue()
 
 
+def compose_multipanel(
+    units: list[bytes],
+    slots: list[dict],
+    canvas_w: int = 1024,
+    canvas_h: int = 1536,
+    separator: tuple[int, int, int] = (217, 217, 217),
+) -> bytes:
+    """把 N 个分镜单元(字节)按布局模板拼成一张整页多格图。
+
+    slot: {"x","y","w","h","rot"} —— (x,y) 目标左上角, w/h 目标尺寸, rot 微旋转角度。
+    旋转后露白用 canvas 底纸色填充，并放大覆盖以防边角露出底纸。
+    保留分镜单元顶部的留白区不被裁掉（加字用）。
+    返回 JPEG 字节；内部异常时抛 raise，调用方可据此切换备用模板。
+    """
+    from PIL import Image
+    if len(units) != len(slots):
+        raise ValueError(f"分镜单元数 {len(units)} 与布局槽位数 {len(slots)} 不一致")
+
+    # canvas 底纸色：取第一个单元顶部留白的平均色，尽量贴近原纸
+    base_color = (244, 239, 230)
+    try:
+        probe = Image.open(BytesIO(units[0])).convert("RGB")
+        w0, h0 = probe.size
+        top_region = probe.crop((0, 0, min(w0, 200), min(h0, 60))).resize((1, 1))
+        base_color = top_region.getpixel((0, 0))
+    except Exception:
+        pass
+
+    canvas = Image.new("RGB", (canvas_w, canvas_h), base_color)
+
+    # 按阅读顺序（slots 顺序即阅读顺序）依次贴入；z序=数组顺序，后者覆盖前者(允许重叠)
+    for unit_bytes, slot in zip(units, slots):
+        if slot is None:
+            raise ValueError("布局中存在 None 槽位")
+        img = Image.open(BytesIO(unit_bytes)).convert("RGB")
+        sw, sh = img.size
+
+        tx, ty, tw, th = (int(slot["x"]), int(slot["y"]),
+                          int(slot["w"]), int(slot["h"]))
+        rot = float(slot.get("rot", 0) or 0)
+
+        # 1) 覆盖裁切到目标比例（居中，保留顶部留白优先：从顶部起算）
+        body_aspect = tw / th if th else 1
+        src_body_h = sh
+        # 目标区域需要 src 比例匹配；以"宽度为准"覆盖，同时尽量保留顶部
+        scale = max(tw / sw, th / sh)
+        cw = max(int(tw / scale), 1)
+        ch = max(int(th / scale), 1)
+        # 裁剪：若原位图高宽比比目标"窄"(需要纵向较宽)，居中竖裁但顶部偏移=0 保顶部留白
+        crop_x = max((sw - cw) // 2, 0)
+        crop_y = 0  # 从顶部开始，保留留白
+        if ch > sh:
+            ch = sh
+        crop = img.crop((crop_x, crop_y, crop_x + cw, crop_y + ch))
+
+        # 2) 缩放并旋转（旋转用底色填充 + 放大覆盖，避免露白）
+        tile = crop.resize((tw, th), Image.LANCZOS)
+        if abs(rot) > 0.05:
+            tile = tile.rotate(rot, resample=Image.BICUBIC,
+                               expand=True, fillcolor=base_color)
+
+        # 中心对齐到目标区域
+        px = tx + (tw - tile.size[0]) // 2
+        py = ty + (th - tile.size[1]) // 2
+        canvas.paste(tile, (px, py))
+
+    # 极淡浅灰分隔线：在相邻大小槽间隙处不强求（随旋转），整页画纸感即可。
+    # 这里不强制加网格线，保持"有设计感"而非卡片感。如需分隔线由模板控制。
+    buf = BytesIO()
+    canvas.save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Generate comic story panels (recipe-driven, supports style-anchor and anti-homogenization variants)"
@@ -347,6 +481,13 @@ def main() -> int:
              "其余相邻两格拼成一张 1024x1536 双分镜图，中间用极淡浅灰色细线分隔。"
              "也可在 story JSON 里用 \"split2\": true 开启。",
     )
+    ap.add_argument("--multipanel", action="store_true",
+        help="整页多格模式（仅 colored-pencil）：默认自由艺术版，把 3-5 格/页拼进一张 1024x1536 "
+             "整页（非等分节奏+微旋转）；多次调试失败自动降级规整节奏版。"
+             "也可在 story JSON 里用 \"multipanel\": true 或 \"multipanel_style\": \"free|regular\" 开启。",
+    )
+    ap.add_argument("--mp-style", choices=["free", "regular"], default=None,
+        help="整页多格排布风格：free=自由艺术版(默认) regular=规整节奏版")
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
@@ -463,12 +604,38 @@ def main() -> int:
         if args.split2 and len(panels) <= 6:
             print("⚠️  split2 已开启但总格数≤6，回退为逐格单图。")
     print(f"Split2(双分镜): {'ON' if split2 else 'OFF'}")
+
+    # ---- 整页多格模式判定 ----
+    # 仅 colored-pencil；需要显式开启（CLI --multipanel 或 story JSON "multipanel": true）。
+    # 总格数 ≥5 才启用；否则回退逐格单图。每页装 3-5 格，封面(首格)单独出单图。
+    multipanel = (args.multipanel or bool(story.get("multipanel", False))) and style == "colored-pencil"
+    if multipanel:
+        multipanel = len(panels) >= 5
+        if len(panels) < 5:
+            print("⚠️  multipanel 已开启但总格数<5，回退为逐格单图。")
+    mp_style = args.mp_style or story.get("multipanel_style", "free")
+    if mp_style not in ("free", "regular"):
+        mp_style = "free"
+    print(f"Multipanel(整页多格): {'ON' if multipanel else 'OFF'}"
+          + (f"  风格={mp_style}" if multipanel else ""))
     print()
 
-    # 生成清单：每项 (index, panel)。封面(index 0)单独处理，其余按双分镜分组。
-    # 分组：(1,2)(3,4)(5,6)...；若最后一组只有一格，则该格单独成图。
+    # 生成清单
     jobs = []
-    if split2:
+    if multipanel:
+        jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
+        # 剩余格按每页 3-5 切分
+        rest = list(range(1, len(panels)))
+        pages = _split_pages(len(rest))
+        cursor = 0
+        for page_idx, page_size in enumerate(pages):
+            idxs = rest[cursor:cursor + page_size]
+            cursor += page_size
+            jobs.append({"type": "page", "page": page_idx + 1,
+                         "idxs": idxs,
+                         "panels": [panels[i] for i in idxs],
+                         "style": mp_style})
+    elif split2:
         jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
         i = 1
         while i < len(panels):
@@ -620,11 +787,82 @@ def main() -> int:
                 print(f"  ✅ {composed} ({len(merged)//1024}KB, 双分镜拼接完成)")
             except Exception as e:
                 print(f"  ❌ [double {top_idx+1}~{bottom_idx+1}] 拼接失败: {e}")
+        elif job["type"] == "page":
+            # 整页多格：生成本页所有分镜单元，再按布局拼成一张整页
+            page_no = job["page"]
+            idxs = job["idxs"]
+            panels_of_page = job["panels"]
+            n = len(idxs)
+            page_out = os.path.join(args.output_dir, f"story_page_{page_no}.jpeg")
+            if os.path.exists(page_out) and os.path.getsize(page_out) > 10000:
+                print(f"[page {page_no}]: already composed, using existing")
+                composed_paths.append(page_out)
+                print(f"  ✅ {page_out}")
+                sys.stdout.flush()
+                continue
+
+            # 生成每个分镜单元（方形，保像素）
+            unit_paths = []
+            for k, p in zip(idxs, panels_of_page):
+                unit_job = {"idx": k, "panel": p, "unit_size": "square"}
+                up = _generate_unit(unit_job, f"page{page_no} unit {k+1}")
+                if not up:
+                    print(f"⚠️  [page {page_no}] 分镜 {k+1} 生成失败，跳过整页")
+                    break
+                unit_paths.append(up)
+            if len(unit_paths) != n:
+                sys.stdout.flush()
+                continue
+
+            units_bytes = []
+            ok_all = True
+            for up in unit_paths:
+                try:
+                    with open(up, "rb") as f:
+                        units_bytes.append(f.read())
+                except Exception as e:
+                    print(f"  ❌ [page {page_no}] 读取分镜单元失败: {e}")
+                    ok_all = False
+                    break
+            if not ok_all:
+                sys.stdout.flush()
+                continue
+
+            # 布局：先尝试 free，失败降级 regular（稳定可复现）
+            if get_templates is None:
+                print(f"  ❌ [page {page_no}] multipanel_layouts 未导入，无法拼图")
+                sys.stdout.flush()
+                continue
+            attempt_styles = ["regular"] if job.get("style") == "regular" else ["free", "regular"]
+            merged = None
+            used_style = None
+            for st in attempt_styles:
+                tmpls = get_templates(n, st)
+                if not tmpls:
+                    continue
+                for tmpl in tmpls:
+                    try:
+                        merged = compose_multipanel(units_bytes, tmpl)
+                        used_style = st
+                        break
+                    except Exception as e:
+                        print(f"  ⚠️  [page {page_no}] 布局({st})尝试失败: {e}")
+                        merged = None
+                if merged is not None:
+                    break
+            if merged is None:
+                print(f"  ❌ [page {page_no}] 所有布局尝试均失败，跳过整页")
+                sys.stdout.flush()
+                continue
+            with open(page_out, "wb") as f:
+                f.write(merged)
+            composed_paths.append(page_out)
+            print(f"  ✅ {page_out} ({len(merged)//1024}KB, 整页{used_style}拼接完成, {n}格)")
         sys.stdout.flush()
 
     print("\nDone! All panels saved to:", args.output_dir)
     if composed_paths:
-        print("双分镜图：")
+        print("组合图：")
         for p in composed_paths:
             print(f"  - {p}")
     return 0
