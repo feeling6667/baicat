@@ -372,6 +372,16 @@ manifest 结构（示例见 `references/lettering-manifest.example.json`）：
 
 > 未装中文字体时先 `apk add font-noto-cjk`，或 manifest 用 `font_file` 指定其它 CJK 字体路径。
 
+**auto 批量模式（推荐，一条命令加整套图）**：
+不需要手写 images 清单，直接从 story JSON + 产物目录自动按分镜顺序映射加字：
+```bash
+python3 /var/minis/skills/baicat/scripts/letter_baicat.py \
+  --auto --story-json story.json --output-dir <产物目录>
+```
+自动识别：封面(首格,single)、双分镜(split2 上下两行)、末尾多余单格(single)，
+把 story JSON 里每个 panel 的 `text` 填进对应分镜，批处理整套图。
+也可用 manifest 的 `"auto": true` + `"story_json"` + `"output_dir"` 字段等价触发。
+
 ### 4. 组装图文故事页面
 用 `templates/story_page.html` 生成最终 HTML：替换 `{{TITLE}}`、复制 panel 块、替换图片文件名、竖排图片模式；两风格生图均不画字，图片顶部留白区后期加字，HTML 可在图片下方放正文旁白/对话（信息分工）。图片与 HTML 同目录。
 

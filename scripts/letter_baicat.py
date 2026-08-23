@@ -263,34 +263,202 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def arg_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(description="Deterministically letter baicat panels")
-    ap.add_argument("--manifest", required=True, help="Path to lettering manifest JSON")
+    ap = argparse.ArgumentParser(
+        description="Deterministically letter baicat panels (manifest 或 --auto 自动模式)"
+    )
+    ap.add_argument("--manifest", default=None, help="Path to lettering manifest JSON")
     ap.add_argument("--layout", choices=["single", "split2"], default=None,
                     help="Override layout for all images (optional)")
+    ap.add_argument("--auto", action="store_true",
+                    help="自动模式：从 story JSON + 产物目录自动找图并按序加字")
+    ap.add_argument("--story-json", default=None, help="auto 模式：story JSON 路径")
+    ap.add_argument("--output-dir", default=".", help="auto 模式：已生成产物目录")
+    ap.add_argument("--image-root", default=None,
+                    help="图片基目录（默认=manifest.image_root 或 auto 的 output-dir）")
     return ap
+
+
+def letter_image(
+    src: Path,
+    layout: str,
+    texts: list[str],
+    font_file: str,
+    font_index: int,
+    color: tuple[int, int, int],
+    out_suffix: str,
+) -> None:
+    """对单张已生成的无字图确定性加字。layout: single|split2。"""
+    img = Image.open(src).convert("RGB")
+    w, h = img.size
+    print(f"[+字] {src}  {w}x{h}  layout={layout}")
+
+    if layout == "split2":
+        # 双分镜拼接图：上下两半（中间有 ~8px 淡灰细线）。分别对两半顶部做留白检测。
+        upper_band = find_top_blank_band(img, 0, h // 2)
+        lower_band = find_top_blank_band(img, (h // 2) + 8, h)
+        bands = [upper_band, lower_band]
+    else:
+        bands = [find_top_blank_band(img, 0, int(h * 0.5))]
+
+    if len(bands) != len(texts):
+        raise LetterError(
+            f"{src}: layout={layout} 检测到 {len(bands)} 个留白区，但给 {len(texts)} 段文字"
+        )
+
+    for idx_t, (band, ttext) in enumerate(zip(bands, texts)):
+        if band is None:
+            raise LetterError(f"{src}: 未检测到第 {idx_t+1} 个留白区，无法放置文字")
+        target_size = DEFAULT_FONT_SIZE
+        valid, size, lines, font = fit_text_block(
+            ttext, font_file, font_index, band, w, target_size
+        )
+        render_lines(img, lines, font, band, color, size)
+        label = f"  分镜{idx_t+1}  {ttext!r} (字号{size}px)"
+        if len(lines) > 1:
+            label += " [多行]"
+        print(label)
+
+    out_name = src.stem + out_suffix + src.suffix
+    out_path = src.with_name(out_name)
+    tmp = out_path.with_name(out_path.stem + ".tmp.png")
+    img.save(tmp, "JPEG", quality=95)
+    os.replace(tmp, out_path)
+
+    # ledger
+    ledger = {
+        "source": str(src),
+        "source_sha256": sha256_path(src),
+        "output": str(out_path),
+        "font_file": font_file,
+        "font_index": font_index,
+        "font_color": list(color),
+        "layout": layout,
+        "size": (w, h),
+        "images_texts": texts,
+    }
+    ledger_name = out_path.with_suffix(".ledger.json")
+    with open(ledger_name, "w", encoding="utf-8") as f:
+        json.dump(ledger, f, ensure_ascii=False, indent=2)
+
+    print(f"  ✅ {out_path}")
+
+
+def parse_font_color(raw: Any) -> tuple[int, int, int]:
+    """解析颜色：支持 [r,g,b] 数组 或 "#rrggbb" 字符串。"""
+    if isinstance(raw, list) and len(raw) == 3:
+        return (int(raw[0]), int(raw[1]), int(raw[2]))
+    if isinstance(raw, str):
+        h = raw.lstrip("#")
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    return (30, 30, 30)
+
+
+def build_auto_manifest(
+    story_path: Path,
+    output_dir: Path,
+    image_root: Path,
+) -> list[dict[str, Any]]:
+    """从 story JSON + 产物目录自动构建 images 清单。
+
+    映射依赖 generate_story.py 的产物命名：
+      - 首格封面/单格:  story_<panel.id>.jpeg
+      - 双分镜:          story_split_<idx+1>_<idx+2>.jpeg （数字为 1-based panels 顺序）
+    对每个 panel，把其 text 填到对应产品文件的对应分镜。
+    """
+    story = load_json(story_path)
+    panels = story.get("panels", [])
+    if not panels:
+        raise LetterError(f"story JSON 无 panels: {story_path}")
+
+    split2 = bool(story.get("split2", False)) and len(panels) > 6
+
+    images: list[dict[str, Any]] = []
+    seen: dict[tuple, int] = {}  # (layout, file) -> 已分配的 texts 长度
+
+    # 封面/首格
+    cover_id = panels[0]["id"]
+    cover_f = image_root / f"story_{cover_id}.jpeg"
+    if cover_f.is_file():
+        images.append({"file": f"story_{cover_id}.jpeg", "layout": "single",
+                       "texts": [panels[0].get("text", "")]})
+    else:
+        print(f"⚠️  封面文件未找到，跳过: {cover_f}")
+
+    if split2:
+        # 双分镜：第2格起两两配对
+        i = 1
+        while i < len(panels):
+            if i + 1 < len(panels):
+                fname = f"story_split_{i+1}_{i+2}.jpeg"
+                fpath = image_root / fname
+                if fpath.is_file():
+                    images.append({"file": fname, "layout": "split2",
+                                   "texts": [panels[i].get("text", ""),
+                                             panels[i + 1].get("text", "")]})
+                else:
+                    print(f"⚠️  双分镜文件未找到，跳过: {fpath}")
+                i += 2
+            else:
+                # 末尾单格
+                fname = f"story_{panels[i]['id']}.jpeg"
+                fpath = image_root / fname
+                if fpath.is_file():
+                    images.append({"file": fname, "layout": "single",
+                                   "texts": [panels[i].get("text", "")]})
+                else:
+                    print(f"⚠️  末尾单格文件未找到，跳过: {fpath}")
+                i += 1
+    else:
+        # 逐格单图（≤6格或未开 split2）
+        for p in panels:
+            fname = f"story_{p['id']}.jpeg"
+            fpath = image_root / fname
+            if fpath.is_file():
+                images.append({"file": fname, "layout": "single",
+                               "texts": [p.get("text", "")]})
+            else:
+                print(f"⚠️  单格文件未找到，跳过: {fpath}")
+
+    return images
 
 
 def main() -> int:
     args = arg_parser().parse_args()
-    manifest = load_json(Path(args.manifest))
+
+    # 支持两种入口：manifest 文件（含 "auto": true）或 纯命令行 --auto
+    if args.manifest:
+        manifest = load_json(Path(args.manifest))
+    else:
+        manifest = {}
+
+    auto_mode = args.auto or manifest.get("auto", False)
+    if auto_mode:
+        story_path = Path(args.story_json or manifest.get("story_json", ""))
+        if not story_path.is_file():
+            print("❌ auto 模式需要 story JSON（--story-json 或 manifest.story_json）")
+            return 1
+        output_dir = Path(args.output_dir or manifest.get("output_dir", "."))
+        image_root = Path(
+            args.image_root or manifest.get("image_root", str(output_dir))
+        )
+        images = build_auto_manifest(story_path, output_dir, image_root)
+        if not images:
+            print("⚠️  未找到任何可加字的产物图，请检查 output_dir / image_root 路径。")
+            return 1
+    else:
+        if not args.manifest:
+            print("❌ 需要 --manifest 或 --auto。运行 --help 查看用法。")
+            return 1
+        image_root = Path(manifest.get("image_root", "."))
+        images = manifest.get("images", [])
 
     font_file_raw = manifest.get("font_file")
     font_index = int(manifest.get("font_index", 2))
-    # 颜色解析：支持 [r,g,b] 数组 或 "#rrggbb" 字符串
-    fc = manifest.get("font_color", [30, 30, 30])
-    if isinstance(fc, list) and len(fc) == 3:
-        color = (int(fc[0]), int(fc[1]), int(fc[2]))
-    elif isinstance(fc, str):
-        h = fc.lstrip("#")
-        color = (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
-    else:
-        color = (30, 30, 30)
-
+    color = parse_font_color(manifest.get("font_color", [30, 30, 30]))
     font_file, font_index = find_font_file(font_file_raw, font_index)
-    image_root = manifest.get("image_root", ".")
     out_suffix = manifest.get("out_suffix", "_lettered")
 
-    for it in manifest.get("images", []):
+    for it in images:
         rel = it["file"]
         src = Path(image_root) / rel
         if not src.is_file():
@@ -298,65 +466,7 @@ def main() -> int:
             continue
         layout = args.layout or it.get("layout", "single")
         texts = it.get("texts", [])
-
-        img = Image.open(src).convert("RGB")
-        w, h = img.size
-        print(f"[+字] {rel}  {w}x{h}  layout={layout}")
-
-        if layout == "split2":
-            body_h = h - 8 - 8  # 双分镜拼图中间有 8px 分隔线，上下两半
-            # 向下兼容拼接函数：分隔线在 h//2 附近。用亮度找分隔线 y。
-            # 更稳：在中间 20% 高度范围找最暗(细线)行，用它在分两半。
-            unit_est = (h - 8) // 2
-            # 上分镜：0..~unit_est 找留白；下分镜：unit_est+? .. h
-            # 直接对两半分别检测，比依赖细线位置更稳。
-            upper_band = find_top_blank_band(img, 0, h // 2)
-            lower_band = find_top_blank_band(img, (h // 2) + 8, h)
-            bands = [upper_band, lower_band]
-        else:
-            bands = [find_top_blank_band(img, 0, int(h * 0.5))]
-
-        if len(bands) != len(texts):
-            raise LetterError(
-                f"{rel}: layout={layout} 检测到 {len(bands)} 个留白区，但给 {len(texts)} 段文字"
-            )
-
-        for idx_t, (band, ttext) in enumerate(zip(bands, texts)):
-            if band is None:
-                raise LetterError(f"{rel}: 未检测到第 {idx_t+1} 个留白区，无法放置文字")
-            target_size = int(it.get("font_size", DEFAULT_FONT_SIZE))
-            valid, size, lines, font = fit_text_block(
-                ttext, font_file, font_index, band, w, target_size
-            )
-            records = render_lines(img, lines, font, band, color, size)
-            label = f"  分镜{idx_t+1}  {ttext!r} (字号{size}px)"
-            if len(lines) > 1:
-                label += " [多行]"
-            print(label)
-
-        out_name = src.stem + out_suffix + src.suffix
-        out_path = src.with_name(out_name)
-        tmp = out_path.with_name(out_path.stem + ".tmp.png")
-        img.save(tmp, "JPEG", quality=95)
-        os.replace(tmp, out_path)
-
-        # ledger
-        ledger = {
-            "source": str(src),
-            "source_sha256": sha256_path(src),
-            "output": str(out_path),
-            "font_file": font_file,
-            "font_index": font_index,
-            "font_color": list(color),
-            "layout": layout,
-            "size": (w, h),
-            "images_texts": texts,
-        }
-        ledger_name = out_path.with_suffix(".ledger.json")
-        with open(ledger_name, "w", encoding="utf-8") as f:
-            json.dump(ledger, f, ensure_ascii=False, indent=2)
-
-        print(f"  ✅ {out_path}")
+        letter_image(src, layout, texts, font_file, font_index, color, out_suffix)
 
     return 0
 
