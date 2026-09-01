@@ -371,15 +371,18 @@ def narration_text_block(text: str, framing: str) -> str:
     """text_in_image 开启时追加到 prompt 末尾的"带字覆盖块"。
 
     与配方/构图里的"顶部留白不画字"构成明确的一次性覆盖：留白带的位置与大小不变，
-    但其中必须包含且仅包含一行指定的旁白文字（顶部居中黑粗体，与后期加字规范一致）。
+    但其中必须包含且仅包含一行指定的旁白文字（顶部居中手写楷体、黑墨，
+    参考抖音怀旧条漫的楷体旁白风；注意与后期加字路线的黑粗体不同路）。
     """
     y_hint = ("about 18% of the image height" if framing == "vertical"
               else "about 17% of this half-panel's height")
     return (
         "\n\nNARRATION TEXT (SINGLE OVERRIDE): One exception to the blank-band rule above — "
         f"draw EXACTLY ONE line of Chinese narration text inside the blank paper band: 「{text}」\n"
-        "Style: heavy-weight simplified-Chinese sans-serif (Source Han Sans Bold style), pure "
-        "black ink, horizontally centered; its vertical center sits at " + y_hint + ", well "
+        "Style: Chinese handwritten kaiti (regular script) — natural brush-pen strokes with "
+        "visible tip entry and exit (brush flicks, 笔锋), medium weight, slightly loose "
+        "letter-spacing, warm literary hand-written feel like neat brush-pen kaiti calligraphy; "
+        "pure black ink, horizontally centered; its vertical center sits at " + y_hint + ", well "
         "above the drawing. Character height about 4.5% of the image width, generous margins "
         "on both sides, the line fits comfortably inside the blank band. "
         "Every Chinese character must be rendered accurately and cleanly — correct strokes, no "
