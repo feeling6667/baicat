@@ -367,6 +367,28 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
     return base64.b64decode(b64)
 
 
+def narration_text_block(text: str, framing: str) -> str:
+    """text_in_image 开启时追加到 prompt 末尾的"带字覆盖块"。
+
+    与配方/构图里的"顶部留白不画字"构成明确的一次性覆盖：留白带的位置与大小不变，
+    但其中必须包含且仅包含一行指定的旁白文字（顶部居中黑粗体，与后期加字规范一致）。
+    """
+    y_hint = ("about 18% of the image height" if framing == "vertical"
+              else "about 17% of this half-panel's height")
+    return (
+        "\n\nNARRATION TEXT (SINGLE OVERRIDE): One exception to the blank-band rule above — "
+        f"draw EXACTLY ONE line of Chinese narration text inside the blank paper band: 「{text}」\n"
+        "Style: heavy-weight simplified-Chinese sans-serif (Source Han Sans Bold style), pure "
+        "black ink, horizontally centered; its vertical center sits at " + y_hint + ", well "
+        "above the drawing. Character height about 4.5% of the image width, generous margins "
+        "on both sides, the line fits comfortably inside the blank band. "
+        "Every Chinese character must be rendered accurately and cleanly — correct strokes, no "
+        "distortion, no invented glyphs, no pinyin, no quotation marks drawn in the image, no "
+        "watermark, and absolutely no other text anywhere else in the image. The rest of the "
+        "blank band stays pure empty paper."
+    )
+
+
 def compose_split2(top_bytes: bytes, bottom_bytes: bytes,
                    target_w: int = 1024, target_h: int = 1536,
                    seam: int = 8, separator_color=(217, 217, 217)) -> bytes:
@@ -521,6 +543,8 @@ def main() -> int:
     ap.add_argument("--page-native", action="store_true",
         help="整页原生生图（复制 craft-skills page-native 思路）：让 GPT 一次画出一整页多格漫画，"
              "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
+    ap.add_argument("--text-in-image", action="store_true",
+                    help="生成时把旁白汉字直接画进图（顶部留白区一行黑粗体；整页多格路线不支持）")
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
@@ -669,6 +693,15 @@ def main() -> int:
           + (f"  风格={mp_style}" if multipanel else ""))
     print()
 
+    text_in_image = bool(story.get("text_in_image", False)) or bool(args.text_in_image)
+    if text_in_image and multipanel:
+        print("⚠️  text_in_image 暂不支持整页多格路线，本次忽略该选项。")
+        text_in_image = False
+    print(f"生图直接带字(text_in_image): {'ON' if text_in_image else 'OFF'}")
+    if text_in_image:
+        print("ℹ️  成品图已含旁白文字，无需再跑 letter_baicat 加字。")
+    print()
+
     # 生成清单
     jobs = []
     if multipanel:
@@ -713,22 +746,34 @@ def main() -> int:
             fill["文字"] = panel.get("text", "")
         if "构图" in phs:
             if framing == "square":
+                blank_rule = (
+                    "reserved for one single line of Chinese narration text that will be drawn "
+                    "directly on the image"
+                    if text_in_image
+                    else "reserved for a narration sentence that will be added later; leave it "
+                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it"
+                )
                 fill["构图"] = (
                     "This image is ONE upper/lower half-panel of a two-panel vertical stack. "
                     "Square canvas. The top 35% of this panel is a large clean blank paper area "
-                    "reserved for a narration sentence that will be added later; leave it "
-                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it. "
+                    f"{blank_rule}. "
                     "The subject occupies the lower 65%, centered with balanced, uncrowded "
                     "composition and generous negative space; the drawing's upper background fades "
                     "softly into the blank paper with no hard edge, and the very bottom edge stays "
                     "calm (simple floor or fade) so a thin trim there loses nothing important."
                 )
             else:
+                blank_rule = (
+                    "reserved for one single line of Chinese narration text that will be drawn "
+                    "directly on the image"
+                    if text_in_image
+                    else "reserved for a narration sentence that will be added later; leave it "
+                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it"
+                )
                 fill["构图"] = (
                     "Single vertical 3:4 canvas showing ONE narrative panel filling the whole image. "
                     "The top third of the canvas (about 33%) is a large clean blank paper area "
-                    "reserved for a narration sentence that will be added later; leave it "
-                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it. "
+                    f"{blank_rule}. "
                     "The subject is placed centered in the lower two-thirds with balanced, "
                     "uncrowded composition and generous negative space; the drawing's upper "
                     "background dissolves softly upward into the blank paper — no hard edge, no "
@@ -747,10 +792,15 @@ def main() -> int:
                     "no internal division, the whole canvas is one narrative panel."
                 )
         try:
-            return render(style_template, fill)
+            prompt = render(style_template, fill)
         except ValueError as e:
             print(f"  render error: {e}", file=sys.stderr)
             return None
+        if text_in_image:
+            t = (panel.get("text") or "").strip()
+            if t:
+                prompt += narration_text_block(t, framing)
+        return prompt
 
     def _anchor_for(idx: int) -> str | None:
         if anchor_path:

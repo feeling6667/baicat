@@ -481,6 +481,9 @@ def build_auto_manifest(
     对每个 panel，把其 text 填到对应产品文件的对应分镜。
     """
     story = load_json(story_path)
+    if bool(story.get("text_in_image", False)):
+        print("ℹ️  story 开启 text_in_image：生图已直接带汉字，自动模式跳过加字。")
+        return []
     panels = story.get("panels", [])
     if not panels:
         raise LetterError(f"story JSON 无 panels: {story_path}")

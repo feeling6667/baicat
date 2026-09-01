@@ -70,6 +70,7 @@ python3 scripts/generate_story.py \
   产物只有 `story_page_<n>.jpeg`，无分镜单元。拼接版有扁长格裁切风险，长镜头故事推荐 page_native。
 - `anchor`：画风锚点图，锁多格画风一致；不填则第2格起用上一格输出参考。
 - `text`：两风格生图均**不画字**，仅作后期加字依据 + 彩铅光影情绪推断，生图只留顶部约1/3大留白区。
+- `text_in_image`：可选（或 CLI `--text-in-image`），生图直接把 `text` 一行黑粗体画进顶部留白区；开启后无需 letter_baicat 加字（auto 自动跳过），整页多格路线不支持。
 
 ## 抗同质化
 
