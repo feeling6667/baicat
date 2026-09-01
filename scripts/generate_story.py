@@ -548,6 +548,9 @@ def main() -> int:
              "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
     ap.add_argument("--text-in-image", action="store_true",
                     help="生成时把旁白汉字直接画进图（顶部留白区一行黑粗体；整页多格路线不支持）")
+    ap.add_argument("--export-prompts", nargs="?", const="AUTO", default=None,
+                    help="不生图，只把整套生图提示词整理成可复制的 Markdown 文档"
+                         "（默认写到 <output-dir>/生图提示词.md，也可跟路径）")
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
@@ -845,6 +848,108 @@ def main() -> int:
             elapsed = time.time() - t0
             print(f"  ❌ failed ({elapsed:.1f}s): {e}")
             return None
+
+    # ---- 出口 B：只导出提示词文档，不调用任何生图 API（供其他 agent 出图） ----
+    if args.export_prompts:
+        out_md = (args.export_prompts if args.export_prompts != "AUTO"
+                  else os.path.join(args.output_dir, "生图提示词.md"))
+
+        def _vv(v):
+            return v[1] if isinstance(v, (list, tuple)) and len(v) > 1 else str(v)
+
+        entries = []
+        for job in jobs:
+            if job["type"] in ("cover", "single"):
+                p = job["panel"]
+                entries.append({
+                    "title": ("封面" if job["type"] == "cover" else "单图") + f"（分镜 {job['idx'] + 1}）",
+                    "scene": p.get("scene", ""), "text": p.get("text", ""),
+                    "size": "1024x1536（竖版 3:4）", "fname": f"story_{p['id']}.jpeg",
+                    "prompt": _render_prompt(p, framing="vertical"), "note": "",
+                })
+            elif job["type"] == "double":
+                for side, sub in (("上格", job["top"]), ("下格", job["bottom"])):
+                    p = sub["panel"]
+                    entries.append({
+                        "title": f"双分镜{side}（分镜 {sub['idx'] + 1}）",
+                        "scene": p.get("scene", ""), "text": p.get("text", ""),
+                        "size": "1024x1024（方形）", "fname": f"story_{p['id']}.jpeg",
+                        "prompt": _render_prompt(p, framing="square"),
+                        "note": ("与本组另一格出图后由脚本自动拼成 "
+                                 f"story_split_{job['top']['idx'] + 1}_{job['bottom']['idx'] + 1}.jpeg"),
+                    })
+            elif job["type"] == "page" and job.get("native"):
+                layout_note = ("A larger anchor panel at the top (the strongest/most emotional "
+                               "beat), then the remaining panels below in reading order, sizes "
+                               "varying for rhythm. Panels reading order top to bottom:")
+                layout_texts = [f"Panel {k + 1}: {p.get('scene', '')}"
+                                for k, p in enumerate(job["panels"])]
+                page_prompt = render(extract_template("colored-pencil-page"),
+                                     {"主体": layout_note + "\n" + "\n".join(layout_texts),
+                                      **var_values})
+                entries.append({
+                    "title": f"整页 {job['page']}（{len(job['idxs'])} 格原生一次生成）",
+                    "scene": "；".join(p.get("scene", "") for p in job["panels"]),
+                    "text": "（整页路线旁白见文档头说明）",
+                    "size": "1024x1536（竖版 3:4）", "fname": f"story_page_{job['page']}.jpeg",
+                    "prompt": page_prompt,
+                    "note": "整页原生：需要 agent 支持一次生成多格漫画页构图",
+                })
+            elif job["type"] == "page":
+                for k, p in zip(job["idxs"], job["panels"]):
+                    entries.append({
+                        "title": f"整页{job['page']}单元（分镜 {k + 1}）",
+                        "scene": p.get("scene", ""), "text": p.get("text", ""),
+                        "size": "1024x1024（方形）", "fname": f"story_{p['id']}.jpeg",
+                        "prompt": _render_prompt(p, framing="square"),
+                        "note": f"出图后由脚本按布局自动拼成 story_page_{job['page']}.jpeg",
+                    })
+
+        lines = [
+            f"# 《{story.get('title', 'untitled')}》生图提示词包",
+            "",
+            "> baicat 阶段④出口 B —— 以下提示词与脚本实际发送的完全一致，可整块复制给任意生图 agent"
+            "（GPT Image 2 / 即梦 / Midjourney 等）。",
+            "",
+            f"- **风格**：{style}",
+            "- **锁定变量（整篇统一，请勿跨篇混用）**：",
+            f"  - 光影：{_vv(var_values['光影'])}",
+            f"  - 画纸：{_vv(var_values['画纸'])}",
+            ("- **旁白文字**：已开 text_in_image，提示词自带旁白，出图即成品" if text_in_image
+             else "- **旁白文字**：未画进图。出图后按建议文件名放进输出目录，再运行 "
+                  "`python3 /var/minis/skills/baicat/scripts/letter_baicat.py --auto "
+                  "--story-json story.json --output-dir <输出目录>` 自动加字"),
+            "- **画风一致性**：先出第 1 张；之后每张都把第 1 张成图作为画风参考图（垫图）一并发给 agent",
+            f"- **共 {len(entries)} 张图**；若 agent 不吃英文提示词可让它翻译，"
+            "但留白比例/文字约束/光影画纸描述必须原样保留",
+            "",
+            "---",
+            "",
+        ]
+        for i, e in enumerate(entries, 1):
+            final = (e["prompt"] or "") + (f"\n\nSCENE: {e['scene']}" if e["scene"].strip() else "")
+            lines += [
+                f"## {i}. {e['title']}",
+                "",
+                f"- **画面**：{e['scene']}",
+                f"- **旁白**：{e['text'] or '（无）'}",
+                f"- **建议尺寸**：{e['size']}",
+                f"- **建议文件名**：`{e['fname']}`" + (f" —— {e['note']}" if e["note"] else ""),
+                "",
+                "```text",
+                final,
+                "```",
+                "",
+                "---",
+                "",
+            ]
+        os.makedirs(os.path.dirname(out_md) or ".", exist_ok=True)
+        with open(out_md, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        print(f"\n📄 提示词文档已导出（未调用生图 API）：{out_md}")
+        print(f"   共 {len(entries)} 张图；出图后按建议文件名放回输出目录，再跑一次本脚本即可自动拼接，"
+              "旁白用 letter_baicat --auto 加字。")
+        return 0
 
     # 若已存在拼好的双分镜图，跳过整组（用于断点续跑）
     composed_paths = []
