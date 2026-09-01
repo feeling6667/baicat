@@ -402,8 +402,10 @@ def compose_split2(top_bytes: bytes, bottom_bytes: bytes,
     canvas.paste(bottom, (0, unit_h + seam))
 
     draw = ImageDraw.Draw(canvas)
-    draw.line([(0, unit_h + seam // 2), (target_w, unit_h + seam // 2)],
-              fill=separator_color, width=seam)
+    # 缝隙 [unit_h, unit_h+seam) 用矩形精确填充（PIL line 覆盖范围有偏差，
+    # 会漏出纯白画布底，抬高等效亮度峰值、干扰下游加字的留白带检测）
+    draw.rectangle([0, unit_h, target_w - 1, unit_h + seam - 1],
+                   fill=separator_color)
     # 极淡浅灰细线，近似画纸折痕，非漫画粗黑边框
 
     buf = BytesIO()

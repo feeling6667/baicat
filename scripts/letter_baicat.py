@@ -55,6 +55,8 @@ MIN_FONT_SIZE = 26          # 最小可接受字号（再小就报错让用户�
 DEFAULT_FONT_SIZE = 46      # 初始口号
 SAMPLE_STEP = 4             # 亮度采样步长（每 STEP 像素取一行检测）
 BAND_MIN_HEIGHT = 20        # 留白带最小高度（低于可能不是留白）
+HEAD_PROBE_ROWS = 60        # 亮度峰值探测行数：只探测区域头部（留白带总从顶部开始）
+TOP_ANCHOR_TOLERANCE = 12   # 亮带起始位置与区域顶部的最大允许偏差
 MARGIN_X = 24               # 文字左右安全边距
 MARGIN_TOP_BOTTOM = 12      # 文字与留白带上下的安全边距
 
@@ -118,8 +120,11 @@ def missing_glyphs(font: ImageFont.FreeTypeFont, text: str) -> list[str]:
 def find_top_blank_band(img: Image.Image, y_start: int, y_end: int) -> tuple[int, int] | None:
     """在 [y_start, y_end) 内找顶部连续亮带（留白区）。
 
-    返回 (top, bottom)，不含则 None。用亮度阈值：取全区最高亮度-10 作为"亮即留白"判据，
-    从 y_start 起找第一个稳定亮带。
+    返回 (top, bottom)，不含则 None。
+    判据：留白带必然从区域顶部(y_start)开始，故亮度峰值只探测区域头部 HEAD_PROBE_ROWS 行
+    （避免画面内高光/白墙把阈值抬高、误杀留白带），阈值 = 峰值-10；
+    且只接受起始位置在 y_start 附近(TOP_ANCHOR_TOLERANCE 内)的亮带，防止把画面中的
+    大片亮色区域误判成留白带。
     """
     w, h = img.size
     gray = img.convert("L")
@@ -134,22 +139,27 @@ def find_top_blank_band(img: Image.Image, y_start: int, y_end: int) -> tuple[int
     rows = [band_lum(y) for y in range(y_start, min(y_end, h))]
     if not rows:
         return None
-    peak = max(rows)
+    # 峰值只看区域头部：留白带必然从 y_start 开始，头部行几乎必然落在留白带内；
+    # 若用全区最大值，画面内高光/白色元素会把阈值抬高、误杀真留白带
+    head_n = min(HEAD_PROBE_ROWS, len(rows))
+    peak = max(rows[:head_n])
     threshold = peak - 10
 
-    # 从顶部找连续亮行组成带
-    best: list[int] = []
+    # 收集所有起始位置贴近区域顶部的连续亮带，取最长者
+    best: list[int] | None = None
     cur: list[int] = []
     for idx, val in enumerate(rows):
         y = y_start + idx
         if val > threshold:
             cur.append(y)
         else:
-            if len(cur) >= BAND_MIN_HEIGHT and len(cur) > len(best):
-                best = cur
+            if len(cur) >= BAND_MIN_HEIGHT and cur[0] - y_start <= TOP_ANCHOR_TOLERANCE:
+                if best is None or len(cur) > len(best):
+                    best = cur
             cur = []
-    if len(cur) >= BAND_MIN_HEIGHT and len(cur) > len(best):
-        best = cur
+    if len(cur) >= BAND_MIN_HEIGHT and cur[0] - y_start <= TOP_ANCHOR_TOLERANCE:
+        if best is None or len(cur) > len(best):
+            best = cur
 
     if not best:
         return None
