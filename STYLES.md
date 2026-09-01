@@ -81,11 +81,14 @@ full sharp colored-pencil detail, pencil stroke texture kept intact and uncompre
 
 Quiet, lonely, restrained atmosphere with subtle hope.
 
-A full-width clean blank band is reserved at the very top of the image (and at the top of
-each panel in split composition) as a narration area. Keep this blank band COMPLETELY EMPTY:
-do NOT draw any Chinese text, character, letter, label or watermark in the image.
-No handwritten narration, no subtitles, nothing — the narration will be added later by hand,
-so this reserved band must stay clean paper-colored and free of any marks.
+A LARGE clean blank paper area covering roughly the TOP THIRD of the image (and the top
+third of each panel in split composition) is reserved as a narration area. Keep this blank
+area COMPLETELY EMPTY: do NOT draw any Chinese text, character, letter, label or watermark
+in it — no narration, no subtitles, nothing; the narration will be added later by hand.
+The blank area is pure paper color: no pencil strokes, no objects, no horizon, no texture
+marks inside it. The scene below breathes into it: the upper background of the drawing
+fades softly and gradually into the blank paper — no hard edge, no visible boundary line —
+leaving an airy, minimalist page where emptiness dominates the top.
 
 SCENE: 【主体】
 ```
@@ -95,11 +98,12 @@ SCENE: 【主体】
 - **双分镜标准（仅 colored-pencil，故事总格数>6 时自动启用）**：
   - 单张竖版 3:4（1024x1536）画布内划分上下两个叙事画面。
   - 分镜分隔用一条**极淡浅灰色细线**（约 #d9d9d9），**禁止粗黑漫画边框**。
-  - 每个分镜上方预留干净留白区；**生图时不画任何文字**，旁白由作者后期手动添加入该留白区。
+  - 每个分镜上方预留**约1/3大留白区**（分镜单元按 35% 留白生成，拼接居中裁切后成图每格仍保住约30%）；**生图时不画任何文字**，旁白由作者后期手动添加入该留白区。
   - 同一张图内上下两分镜光影色调统一；分镜构图均衡、元素不拥挤，彩铅手绘细节完整清晰、不压缩笔触质感。
 - **封面必为单图**，不能一图两格（封面用竖版单格完整构图，不同时容纳两格）。
-- **彩铅生图不画文字**：竖版单图和双分镜都在顶部留干净留白区，画面内不写任何中文/字符/水印；
+- **彩铅生图不画文字**：竖版单图和双分镜都在顶部留**约1/3大留白区**（纯纸色、上缘无分界线），画面内不写任何中文/字符/水印；
   旁白文字由作者后期添加。
+- **大留白版式**：竖版单图顶部约 1/3 为纯纸色留白，画面集中下方 2/3；画面上缘背景自然淡入留白、无硬边界，"上空下画"、疏朗呼吸感。
 - **后期旁白排版规范**：单行短句（≤20字）、每格顶部居中黑色粗体；特殊扩容最多两行、总字数≤35字，仅复杂剧情节点启用，不可通篇使用。
 - 排线阴影而非色块；低饱和不鲜艳；配方不锁定角色外貌——人物由故事内容决定，各格保持一致即可。
 
@@ -123,8 +127,9 @@ its full composition; no cropping, no overlap, nothing cramped.
 The same recurring character (same hair, build, clothing) appears consistently across
 all panels.
 
-Inside each panel, leave generous empty space at the top for narration (narration is
-added later), so keep the upper area of every panel calm and uncluttered.
+Inside each panel, leave a generous blank paper band at the top (about the top quarter to
+a third of the panel) for narration (narration is added later), so keep the upper area of
+every panel calm, empty and uncluttered.
 Draw NO Chinese characters, NO text, NO labels, NO watermark anywhere in the image.
 
 Loose hand-drawn lines, pencil hatching shadows, no thick outlines, paper grain visible.
@@ -133,7 +138,7 @@ Quiet, restrained, cinematic mood.
 PAGE LAYOUT AND PANELS (describe every panel, reading order top→bottom):
 【主体】
 ```
-约束：整页一次生成，不逐格拼接；格子非等分有节奏但绝不被裁切；同一主角跨格一致；每格顶部留白不画字；
+约束：整页一次生成，不逐格拼接；格子非等分有节奏但绝不被裁切；同一主角跨格一致；每格顶部约1/4~1/3留白不画字；
 光影+画纸整篇统一一套；中文旁白后期由 letter_baicat 加。
 
 minis_url: minis://skills/baicat/STYLES.md

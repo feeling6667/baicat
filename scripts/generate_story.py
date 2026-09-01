@@ -713,20 +713,24 @@ def main() -> int:
             if framing == "square":
                 fill["构图"] = (
                     "This image is ONE upper/lower half-panel of a two-panel vertical stack. "
-                    "Square canvas. The top quarter of this panel is clean blank whitespace reserved "
-                    "for a narration sentence that will be added later; leave it COMPLETELY EMPTY, "
-                    "do NOT draw any text, character, letter or watermark in it. "
-                    "The subject occupies the lower three-quarters, drawn centered with balanced, "
-                    "uncrowded composition and generous negative space."
+                    "Square canvas. The top 35% of this panel is a large clean blank paper area "
+                    "reserved for a narration sentence that will be added later; leave it "
+                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it. "
+                    "The subject occupies the lower 65%, centered with balanced, uncrowded "
+                    "composition and generous negative space; the drawing's upper background fades "
+                    "softly into the blank paper with no hard edge, and the very bottom edge stays "
+                    "calm (simple floor or fade) so a thin trim there loses nothing important."
                 )
             else:
                 fill["构图"] = (
                     "Single vertical 3:4 canvas showing ONE narrative panel filling the whole image. "
-                    "The top portion of the canvas is a clean blank band reserved for a narration "
-                    "sentence that will be added later; leave it COMPLETELY EMPTY, do NOT draw any "
-                    "text, character, letter or watermark in it. "
-                    "The subject is placed centered in the lower portion with balanced, "
-                    "uncrowded composition and generous negative space."
+                    "The top third of the canvas (about 33%) is a large clean blank paper area "
+                    "reserved for a narration sentence that will be added later; leave it "
+                    "COMPLETELY EMPTY, do NOT draw any text, character, letter or watermark in it. "
+                    "The subject is placed centered in the lower two-thirds with balanced, "
+                    "uncrowded composition and generous negative space; the drawing's upper "
+                    "background dissolves softly upward into the blank paper — no hard edge, no "
+                    "boundary line, just empty paper at the top."
                 )
         if "分镜结构" in phs:
             if framing == "square":
