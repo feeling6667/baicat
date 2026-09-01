@@ -477,23 +477,23 @@ def build_auto_manifest(
 
     split2 = bool(story.get("split2", False)) and len(panels) > 6
     multipanel = bool(story.get("multipanel", False)) and len(panels) >= 5
+    mp_cover = bool(story.get("multipanel_cover", True))
 
     images: list[dict[str, Any]] = []
     seen: dict[tuple, int] = {}  # (layout, file) -> 已分配的 texts 长度
 
-    # 封面/首格
-    cover_id = panels[0]["id"]
-    cover_f = image_root / f"story_{cover_id}.jpeg"
-    if cover_f.is_file():
-        images.append({"file": f"story_{cover_id}.jpeg", "layout": "single",
-                       "texts": [panels[0].get("text", "")]})
-    else:
-        print(f"⚠️  封面文件未找到，跳过: {cover_f}")
-
     if multipanel:
         # 整页多格：story_page_<n>.jpeg 每页装 3-5 格，按 _split_pages 映射。
-        # 用分镜单元(方形)逐个加字再拼，比在整页图上定位留白更可靠。
-        rest = list(range(1, len(panels)))
+        # multipanel_cover=true(默认) 时首格单独出封面单图；false 时全部格进整页。
+        rest = list(range(1, len(panels))) if mp_cover else list(range(0, len(panels)))
+        if mp_cover:
+            cover_id = panels[0]["id"]
+            cover_f = image_root / f"story_{cover_id}.jpeg"
+            if cover_f.is_file():
+                images.append({"file": f"story_{cover_id}.jpeg", "layout": "single",
+                               "texts": [panels[0].get("text", "")]})
+            else:
+                print(f"⚠️  封面文件未找到，跳过: {cover_f}")
         pages = _split_pages_mp(len(rest))
         cursor = 0
         for page_no, page_size in enumerate(pages, 1):

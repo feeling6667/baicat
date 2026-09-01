@@ -68,6 +68,10 @@ import time
 import urllib.request
 from io import BytesIO
 
+# 生图路线：无 IMAGE_API_URL 时回退 minis-model-use。
+# 由 main 在启动时探测后置位（避免重复探测）。
+_USE_MINI_MODEL = False
+
 # 整页多格布局模板（仅 colored-pencil --multipanel 使用）
 try:
     from multipanel_layouts import get_templates  # 与脚本同目录
@@ -290,15 +294,51 @@ def render(template: str, values: dict[str, str]) -> str:
 def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
                    anchor_path: str | None = None,
                    size: str = "1024x1536") -> bytes:
-    """生成单格图片，返回 JPEG 原始字节。
+    """生成单格图片，返回 JPEG/PNG 字节。
 
-    若提供 anchor_path（画风锚点图），把上一格的输出作为 Image 1、锚点作为 Image 2，
-    用图生图方式生成，锁定多格画风一致性（借鉴 hand-drawn-styles 的锚点机制）。
-    size：单图输出尺寸。竖版条漫默认 1024x1536；双分镜模式下单格单元用 1024x1024。
+    路线：优先 IMAGE_API_URL 直调；`_USE_MINI_MODEL` 为 True 时改走
+    `minis-model-use run --model gpt-image-2 --endpoint images-gen`。
+
+    若提供 anchor_path（画风锚点图），作为 style-only 参考传入，锁定多格画风一致。
+    size：1024x1536(竖版) 或 1024x1024(方形分镜单元)。
     """
-    prompt = style_prompt + "\n\nSCENE: " + scene
+    import subprocess
+    use_local = _USE_MINI_MODEL
+    prompt = style_prompt if not scene else style_prompt + "\n\nSCENE: " + scene
 
-    # 构造请求体：文生图 或 图生图（带锚点参考）
+    if anchor_path and os.path.isfile(anchor_path):
+        with open(anchor_path, "rb") as f:
+            anchor_b64 = base64.b64encode(f.read()).decode()
+    else:
+        anchor_b64 = None
+
+    if use_local:
+        # ---- minis-model-use 路线 ----
+        content: list[dict] = [{"type": "text", "text": prompt}]
+        if anchor_b64:
+            content.insert(0, {"type": "image_url",
+                               "image_url": {"url": f"data:image/png;base64,{anchor_b64}"}})
+        req = {
+            "messages": [{"role": "user", "content": content}],
+            "generation_config": {"size": size, "n": 1},
+        }
+        inp = os.path.join("/tmp", "baicat_gen_req.json")
+        with open(inp, "w", encoding="utf-8") as f:
+            json.dump(req, f, ensure_ascii=False)
+        out_png = os.path.join("/tmp", "baicat_gen_out.png")
+        if os.path.exists(out_png):
+            os.remove(out_png)
+        proc = subprocess.run(
+            ["minis-model-use", "run", "--model", "gpt-image-2",
+             "--endpoint", "images-gen", "--input", inp, "--output", out_png],
+            capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"minis-model-use 失败: {proc.stderr.strip()[:500]}")
+        with open(out_png, "rb") as f:
+            return f.read()
+
+    # ---- IMAGE_API_URL 直调路线 ----
     body: dict = {
         "model": "gpt-image-2",
         "prompt": prompt,
@@ -306,20 +346,10 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
         "quality": "high",
         "n": 1,
     }
-
-    if anchor_path and os.path.isfile(anchor_path):
-        with open(anchor_path, "rb") as f:
-            anchor_b64 = base64.b64encode(f.read()).decode()
+    if anchor_b64:
         body["image"] = f"data:image/png;base64,{anchor_b64}"
-        body["prompt"] = (
-            "Image 1 is the approved style-only reference. "
-            "Match its line weight, coloring, character proportions, mood and palette. "
-            "Do NOT copy the people, clothing, positions or story from Image 1 — only inherit the visual style. "
-            + prompt
-        )
 
     payload = json.dumps(body).encode()
-
     req = urllib.request.Request(
         f"{api_url.rstrip('/')}/images/generations",
         data=payload,
@@ -329,10 +359,8 @@ def generate_panel(scene: str, style_prompt: str, api_url: str, api_key: str,
         },
         method="POST",
     )
-
     with urllib.request.urlopen(req, timeout=600) as resp:
         data = json.loads(resp.read())
-
     if "error" in data:
         raise RuntimeError(f"API error: {data['error']}")
     b64 = data["data"][0]["b64_json"]
@@ -488,6 +516,9 @@ def main() -> int:
     )
     ap.add_argument("--mp-style", choices=["free", "regular"], default=None,
         help="整页多格排布风格：free=自由艺术版(默认) regular=规整节奏版")
+    ap.add_argument("--page-native", action="store_true",
+        help="整页原生生图（复制 craft-skills page-native 思路）：让 GPT 一次画出一整页多格漫画，"
+             "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
@@ -516,10 +547,20 @@ def main() -> int:
 
     api_url = os.environ.get("IMAGE_API_URL")
     api_key = os.environ.get("OPENAI_API_KEY")
+    global _USE_MINI_MODEL
+    # 生图路线：优先 IMAGE_API_URL 直调；未设置则回退 minis-model-use（GPT Image 2）。
+    _USE_MINI_MODEL = False
     if not api_url:
-        print("ERROR: IMAGE_API_URL not set", file=sys.stderr)
-        return 1
-    if not api_key:
+        # minis-model-use 是 iSH 环境可用的生图代理
+        import shutil as _sh
+        if _sh.which("minis-model-use"):
+            print("[生图] IMAGE_API_URL 未设置，改用 minis-model-use (GPT Image 2)")
+            _USE_MINI_MODEL = True
+            api_url = ""   # generate_panel 里据此走 minis 路线
+        else:
+            print("ERROR: 未找到 minis-model-use，且 IMAGE_API_URL 未设置", file=sys.stderr)
+            return 1
+    if not api_key and not _USE_MINI_MODEL:
         print("ERROR: OPENAI_API_KEY not set", file=sys.stderr)
         return 1
 
@@ -616,6 +657,12 @@ def main() -> int:
     mp_style = args.mp_style or story.get("multipanel_style", "free")
     if mp_style not in ("free", "regular"):
         mp_style = "free"
+    # 整页原生生图：让 GPT 一次画整页多格（不逐格拼接）。仅 multipanel 且显式开启。
+    page_native = bool(story.get("page_native", False)) or args.page_native
+    if page_native and not multipanel:
+        page_native = False
+    # multipanel_cover: 默认 true（首格单独出封面单图）；false 则全部格进整页，不留独立封面。
+    mp_cover = bool(story.get("multipanel_cover", True))
     print(f"Multipanel(整页多格): {'ON' if multipanel else 'OFF'}"
           + (f"  风格={mp_style}" if multipanel else ""))
     print()
@@ -623,9 +670,12 @@ def main() -> int:
     # 生成清单
     jobs = []
     if multipanel:
-        jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
+        if mp_cover:
+            jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
+            rest = list(range(1, len(panels)))
+        else:
+            rest = list(range(0, len(panels)))
         # 剩余格按每页 3-5 切分
-        rest = list(range(1, len(panels)))
         pages = _split_pages(len(rest))
         cursor = 0
         for page_idx, page_size in enumerate(pages):
@@ -634,7 +684,8 @@ def main() -> int:
             jobs.append({"type": "page", "page": page_idx + 1,
                          "idxs": idxs,
                          "panels": [panels[i] for i in idxs],
-                         "style": mp_style})
+                         "style": mp_style,
+                         "native": page_native})
     elif split2:
         jobs.append({"type": "cover", "idx": 0, "panel": panels[0]})
         i = 1
@@ -788,7 +839,7 @@ def main() -> int:
             except Exception as e:
                 print(f"  ❌ [double {top_idx+1}~{bottom_idx+1}] 拼接失败: {e}")
         elif job["type"] == "page":
-            # 整页多格：生成本页所有分镜单元，再按布局拼成一张整页
+            # 整页多格：page_native=让 GPT 一次画整页；否则生成本页分镜单元再拼成整页
             page_no = job["page"]
             idxs = job["idxs"]
             panels_of_page = job["panels"]
@@ -798,6 +849,46 @@ def main() -> int:
                 print(f"[page {page_no}]: already composed, using existing")
                 composed_paths.append(page_out)
                 print(f"  ✅ {page_out}")
+                sys.stdout.flush()
+                continue
+
+            # ---- 整页原生生图（page_native）----
+            if job.get("native"):
+                try:
+                    page_tpl = extract_template("colored-pencil-page")
+                except ValueError as e:
+                    print(f"  ❌ [page {page_no}] 取整页配方失败: {e}", file=sys.stderr)
+                    sys.stdout.flush()
+                    continue
+                # 构造整页布局描述：主锚点格 + 其余格，按阅读顺序
+                layout_note = (
+                    "A larger anchor panel at the top (the strongest/most emotional beat), "
+                    "then the remaining panels below in reading order, sizes varying for rhythm. "
+                    "Panels reading order top to bottom:"
+                )
+                layout_texts = []
+                for k, p in zip(idxs, panels_of_page):
+                    layout_texts.append(f"Panel {k+1}: {p.get('scene','')}")
+                page_layout = layout_note + "\n" + "\n".join(layout_texts)
+                page_fill = {"主体": page_layout, **var_values}
+                try:
+                    page_prompt = render(page_tpl, page_fill)
+                except ValueError as e:
+                    print(f"  ❌ [page {page_no}] 整页配方渲染失败: {e}", file=sys.stderr)
+                    sys.stdout.flush()
+                    continue
+                print(f"[page {page_no}]: 整页原生生成 {n}格 (1024x1536)...")
+                sys.stdout.flush()
+                t0 = time.time()
+                try:
+                    img_bytes = generate_panel("", page_prompt, api_url, api_key,
+                                               None, size="1024x1536")
+                    with open(page_out, "wb") as f:
+                        f.write(img_bytes)
+                    composed_paths.append(page_out)
+                    print(f"  ✅ {page_out} ({len(img_bytes)//1024}KB, 整页原生 {n}格, {time.time()-t0:.1f}s)")
+                except Exception as e:
+                    print(f"  ❌ [page {page_no}] 整页原生失败: {e}")
                 sys.stdout.flush()
                 continue
 

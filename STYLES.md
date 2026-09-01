@@ -103,4 +103,37 @@ SCENE: 【主体】
 - **后期旁白排版规范**：单行短句（≤20字）、每格顶部居中黑色粗体；特殊扩容最多两行、总字数≤35字，仅复杂剧情节点启用，不可通篇使用。
 - 排线阴影而非色块；低饱和不鲜艳；配方不锁定角色外貌——人物由故事内容决定，各格保持一致即可。
 
+---
+
+## colored-pencil-page 彩铅整页多格（原生生图）
+
+```
+A healing hand-drawn webcomic page, realistic colored-pencil narrative illustration on paper.
+muted desaturated 莫兰迪 palette, 细腻彩铅叠色笔触, 自然手绘肌理, 复古米色画纸质感.
+【光影】. 【画纸】.
+
+Compose the ENTIRE comic page in ONE image with a clear editorial rhythm:
+- TOP: one LARGE horizontal anchor panel (the strongest/most emotional beat).
+- MIDDLE: a row of 2 to 3 SMALLER panels side by side (detail / reaction beats).
+- BOTTOM: one LARGE horizontal closing panel (the reveal or final beat).
+Panels are UNEQUAL in size and clearly separated from each other by clean WHITE
+borders and visible white gutter spacing between them — like a printed comic page,
+NOT an equal grid, NOT touching edges. Each panel is a self-contained scene showing
+its full composition; no cropping, no overlap, nothing cramped.
+The same recurring character (same hair, build, clothing) appears consistently across
+all panels.
+
+Inside each panel, leave generous empty space at the top for narration (narration is
+added later), so keep the upper area of every panel calm and uncluttered.
+Draw NO Chinese characters, NO text, NO labels, NO watermark anywhere in the image.
+
+Loose hand-drawn lines, pencil hatching shadows, no thick outlines, paper grain visible.
+Quiet, restrained, cinematic mood.
+
+PAGE LAYOUT AND PANELS (describe every panel, reading order top→bottom):
+【主体】
+```
+约束：整页一次生成，不逐格拼接；格子非等分有节奏但绝不被裁切；同一主角跨格一致；每格顶部留白不画字；
+光影+画纸整篇统一一套；中文旁白后期由 letter_baicat 加。
+
 minis_url: minis://skills/baicat/STYLES.md
