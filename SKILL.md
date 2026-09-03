@@ -236,33 +236,10 @@ python3 /var/minis/skills/baicat/scripts/generate_story.py \
 | 情绪 | 孤独、压抑、克制中透出温暖希望，安静有力量 |
 | 文字 | 生图**不画字**，顶部留干净空白；旁白由作者后期手动添加（单行≤20字、居中黑粗体） |
 
-**Prompt 模板**（配方完整存于 STYLES.md，脚本按名提取填充，禁止手工缩写）：
-```
-A healing hand-drawn webcomic illustration with colored pencil and graphite texture,
-treated as a 写实彩铅手绘叙事插画 (realistic colored-pencil narrative illustration),
-muted desaturated 莫兰迪 palette. 细腻彩铅叠色笔触, 自然手绘肌理, 柔和阴影.
-复古米色画纸质感, 电影感叙事构图, 画面干净克制, 色彩淡雅不艳丽, 细节丰富, 8K高清.
-
-【光影】. 【画纸】.
-
-【构图】
-
-Loose hand-drawn lines, pencil hatching for shadows, no thick black outlines, no comic frames.
-Paper grain texture visible. Balanced uncluttered composition, subject not crowded against edges,
-full sharp colored-pencil detail, pencil stroke texture kept intact and uncompressed.
-
-【分镜结构】
-
-Quiet, lonely, restrained atmosphere with subtle hope.
-
-A full-width clean blank band is reserved at the very top of the image (and at the top of
-each panel in split composition) as a narration area. Keep this blank band COMPLETELY EMPTY:
-do NOT draw any Chinese text, character, letter, label or watermark in the image.
-No handwritten narration, no subtitles, nothing — the narration will be added later by hand,
-so this reserved band must stay clean paper-colored and free of any marks.
-
-SCENE: 【主体】
-```
+**Prompt 模板**：**不在此复制配方全文**（历史教训：内嵌副本会随 STYLES.md 演进漂移失真）。
+配方单一真源在 `STYLES.md` 的「colored-pencil 彩铅」代码块，脚本按风格名原样提取、只填占位符，
+禁止手工缩写或改写。AI 只需了解结构：基础画风段 → 【光影】+【画纸】（变量库序号）→ 【构图】→
+线条质感段 → 【分镜结构】→ 留白约束段（顶部约1/3纯纸色、画面上缘淡入、不画任何字）→ `SCENE: 【主体】`。
 
 **约束**：**生图不画任何文字**，顶部约1/3大留白区完全留空（画面上缘自然淡入留白、无硬分界），旁白由作者后期手动添加；排线阴影而非色块；低饱和不鲜艳；光影+画纸同一篇锁一套（阶段3已定）。
 
@@ -352,8 +329,8 @@ SCENE: 【主体】
 ① **拼接版（默认，`"page_native": false`/不写）**：每格仍 1024×1024 高清单独生成
 （保细节、不压缩笔触），`compose_multipanel()` 按布局模板（`scripts/multipanel_layouts.py`）
 缩放/旋转/覆盖裁切拼进整页，光影画纸整篇统一。
-**已知风险（实测）**：布局模板格子偏扁长（约 2.13:1），方形源图塞入会上下裁切近半、
-画面不全——长镜头描述的故事慎用拼接版。
+**已知风险（实测）**：布局模板格子宽高比 0.53~2.73 不等（源图为 1:1 方形），比例偏离 1 越远
+裁切越多，部分格子上下/左右会被裁近半、画面不全——长镜头描述的故事慎用拼接版。
 
 ② **整页原生（推荐，`"page_native": true` 或 CLI `--page-native`，须配合 multipanel）**：
 不逐格生成、不拼接。把该页全部 `scene` 合并成 "PAGE LAYOUT AND PANELS" 整页描述，

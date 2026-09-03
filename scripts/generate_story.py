@@ -547,7 +547,7 @@ def main() -> int:
         help="整页原生生图（复制 craft-skills page-native 思路）：让 GPT 一次画出一整页多格漫画，"
              "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
     ap.add_argument("--text-in-image", action="store_true",
-                    help="生成时把旁白汉字直接画进图（顶部留白区一行黑粗体；整页多格路线不支持）")
+                    help="生成时把旁白汉字直接画进图（顶部留白区一行手写楷体，带笔锋；整页多格路线不支持）")
     ap.add_argument("--export-prompts", nargs="?", const="AUTO", default=None,
                     help="不生图，只把整套生图提示词整理成可复制的 Markdown 文档"
                          "（默认写到 <output-dir>/生图提示词.md，也可跟路径）")
