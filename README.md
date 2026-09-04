@@ -1,6 +1,6 @@
 # baicat
 
-> 一个**图文故事重构 + 双风格条漫生成器** Agent Skill。先用叙事前置流程（核心诊断→定结局→编排并锁视觉基调）把故事想透、视觉基调定好，再直接出图，拼装成可浏览的 HTML 图文故事页。默认**彩铅治愈**，明确说"涂鸦"才切黑白丧系。
+> 一个**图文故事重构 + 双风格条漫生成器** Agent Skill。先用叙事前置流程（核心诊断→定结局→编排并锁视觉基调）把故事想透、视觉基调定好，再直接出图，拼装成可浏览的 HTML 图文故事页。默认**彩铅治愈**，明确说"涂鸦"才切黑白丧系。**v2.4.0 新增人物一致性**：单故事内角色外貌自动统一。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -36,7 +36,11 @@
 
 1. **阶段1 核心诊断**：只输出「故事核心」+「异常封面句」两样，附 A/B/C/D 判定。
 2. **阶段2 结局设置**：主情绪 + 五种结局选一 + 收尾画面，附 3 行极简确认清单。
-3. **阶段3 图文编排**：先定视觉基调（光影#N/画纸#N，全篇统一），再逐格拆画面；text 即最终旁白（两风格生图均不画字，后期自加）；>6格且彩铅 → 启用双分镜。
+3. **阶段3 图文编排**：
+   - **人物设定**（新增 v2.4.0）：自动识别故事角色，生成详细外貌描述（英文），保证单故事内人物统一
+   - 先定视觉基调（光影#N/画纸#N，全篇统一），再逐格拆画面
+   - text 即最终旁白（两风格生图均不画字，后期自加）
+   - >6格且彩铅 → 启用双分镜
 4. **阶段4 彩铅生图**：
 
 ```bash
@@ -55,13 +59,18 @@ python3 scripts/generate_story.py \
   "paper": 1,
   "split2": true,
   "anchor": "optional/path/anchor.png",
+  "characters": {
+    "主角": "25-year-old Chinese office worker, shoulder-length straight black hair...",
+    "配角": "50-year-old cleaning lady..."
+  },
   "panels": [
-    {"id": "p1", "scene": "A girl sitting on a chair hugging knees, quietly waiting.", "text": "等一个人。"}
+    {"id": "p1", "scene": "{{主角}} sitting on a chair hugging knees, quietly waiting.", "text": "等一个人。"}
   ]
 }
 ```
 
 - `lighting`（1-6）/ `paper`（1-5）：**阶段3已锁定**；不填由脚本按情绪自动推断 / 跨篇轮换（抗同质化）。
+- `characters`（新增 v2.4.0）：**人物外貌描述字典**，保证单故事内角色统一。scene 里用 `{{角色名}}` 占位符，生成时自动替换成完整外貌。
 - `split2`：彩铅且总格数>6 时，第1格作封面单图，其余两两拼成 3:4 双分镜（极淡浅灰细线，禁粗黑边框）。
 - `multipanel`（配 `"multipanel_cover": false`、`"multipanel_style": "free|regular"`）：整页多格模式，
   一张 3:4 图装 3-5 格，超 5 格自动拆页。

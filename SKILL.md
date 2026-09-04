@@ -1,7 +1,7 @@
 ---
 name: baicat
-version: 2.3.0
-description: "双风格条漫生成器 + 图文故事重构二合一。默认彩铅(colored-pencil)直接出图；明确说'涂鸦'才用涂鸦(doodle)。叙事前置流程：①核心诊断(只找故事核心+异常封面句)→②五选一定结局→③图文编排并同步锁定彩铅色调/质感/光晕→④成品输出（A 直接彩铅生图／B 导出可复制的生图提示词文档，供其他 agent 出图）。分阶段手动推进、每阶段停下等确认。用于画一个故事、生成条漫、做个漫画故事、彩铅/涂鸦风格、doodle comic、colored pencil、治愈系、故事重构、异常封面、开放式结局等。"
+version: 2.4.0
+description: "双风格条漫生成器 + 图文故事重构二合一。默认彩铅(colored-pencil)直接出图；明确说'涂鸦'才用涂鸦(doodle)。叙事前置流程：①核心诊断(只找故事核心+异常封面句)→②五选一定结局→③图文编排(自动识别角色生成外貌描述+锁定彩铅色调/质感/光晕)→④成品输出（A 直接彩铅生图／B 导出可复制的生图提示词文档）。人物一致性：单故事内角色外貌自动统一，不跨故事复用。分阶段手动推进、每阶段停下等确认。用于画一个故事、生成条漫、做个漫画故事、彩铅/涂鸦风格、doodle comic、colored pencil、治愈系、故事重构、异常封面、开放式结局等。"
 ---
 
 # baicat — 图文故事重构 + 双风格条漫生成器（二合一）
@@ -111,6 +111,26 @@ description: "双风格条漫生成器 + 图文故事重构二合一。默认彩
 > **一次性定好这篇作品的彩铅色调、质感、光晕**（落到 STYLES.md 的变量库序号），
 > 生成时不再随机、不再返工。
 
+### 3.0 人物设定（单故事内统一外貌）
+
+在写分镜前，**先识别本故事的角色并生成详细外貌描述**，保证同一个故事内人物外貌一致。
+
+1. **自动识别角色**：从故事核心分析需要哪些角色（主角、配角、路人）
+2. **生成外貌描述**（英文，5-7个特征点）：
+   - 年龄、发型、服装、体型、表情特征、标志性道具
+   - 示例："25-year-old Chinese office worker, shoulder-length straight black hair (齐肩直发), black rectangular glasses, white button-up shirt with grey cardigan, slim build (5.5头身), tired eyes with dark circles, exhausted but resilient expression"
+3. **用户确认**：展示人物描述，用户可修改（比如"主角应该是短发不是长发"）
+4. **占位符约定**：后续分镜的 scene 里用 `{{角色名}}` 占位符，生成时自动替换成完整外貌描述
+
+> **重要**：人物外貌描述只在本故事内生效，**不跨故事复用**。每个新故事都重新生成人物设定。
+
+输出格式：
+```markdown
+### 人物设定（本故事内统一）
+- **主角（打工女孩）**: 25-year-old Chinese office worker, shoulder-length straight black hair, black rectangular glasses, white button-up shirt with grey cardigan, slim build, tired eyes with dark circles, minimal makeup, exhausted but resilient expression
+- **保洁阿姨**: 50-year-old cleaning lady, slightly chubby, grey-blue work uniform, short permed hair (烫发), warm smile, weathered hands, kind eyes
+```
+
 ### 3.1 先定视觉基调（再做画面）
 
 为避免"画面写好了、光影套不住"的错位，**先锁定整篇视觉基调**，再写各格画面。
@@ -155,15 +175,19 @@ description: "双风格条漫生成器 + 图文故事重构二合一。默认彩
 
 ```markdown
 ## 《标题》｜N格图文脚本
+- **人物设定**（本故事内统一）：
+  - 主角：〔完整外貌描述〕
+  - 配角：〔完整外貌描述〕
 - **视觉基调**：光影#N〔描述〕／画纸#N〔描述〕（已锁定，全篇统一）
 - **总格数**：N格（理由：〔……〕）；格数>6 且为彩铅 → 启用双分镜（第1格封面单图，其余两两拼接）
 - 输出格式：
-  - 分镜 ID + 画面(只写相机可拍的动作/站位/道具，禁抽象心理形容词) + 字幕/台词(text) + 构图/镜头 + 观众感受推进
+  - 分镜 ID + 画面(只写相机可拍的动作/站位/道具，**人物用 {{角色名}} 占位符代替**，禁抽象心理形容词) + 字幕/台词(text) + 构图/镜头 + 观众感受推进
   - **text 即最终旁白**：两风格生图均不画字，作后期加字依据 + 彩铅光影情绪推断原料；
     单行≤20字，复杂节点≤2行≤35字，顶部居中黑粗体
 ```
 
 > 交付时【画面】字段必须通过"相机可拍"自检；【观众感受】是给导演看的作用注解，不混入画面。
+> 画面描述里的人物用 `{{角色名}}` 占位符（如 `{{主角}} sitting at desk`），生成时会自动替换成完整外貌。
 > 声明是否启用双分镜：`>6格且彩铅` → `"split2": true`。
 
 > **【阶段3 结束点】** 输出完整分镜 + 视觉基调后即停。末尾提示：
@@ -197,11 +221,18 @@ description: "双风格条漫生成器 + 图文故事重构二合一。默认彩
   "lighting": 3,
   "paper": 1,
   "split2": true,
+  "characters": {
+    "主角": "25-year-old Chinese office worker, shoulder-length straight black hair...",
+    "保洁阿姨": "50-year-old cleaning lady..."
+  },
   "panels": [
-    { "id": "p1", "scene": "……", "text": "……" }
+    { "id": "p1", "scene": "{{主角}} hunched over laptop at desk...", "text": "……" },
+    { "id": "p2", "scene": "{{保洁阿姨}} approaching {{主角}}...", "text": "……" }
   ]
 }
 ```
+
+> **人物一致性机制**：scene 里的 `{{角色名}}` 会在生成时自动替换成 characters 字段里的完整外貌描述，保证同一故事内每格人物统一。
 
 ```bash
 python3 /var/minis/skills/baicat/scripts/generate_story.py \

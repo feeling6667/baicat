@@ -43,10 +43,14 @@ Story JSON format:
   "split2": true,                         # 可选：双分镜模式（总格数>6才真正生效，与 multipanel 互斥）
   "multipanel": false,                    # 可选：整页多格模式（总格数>=5才真正生效）
   "multipanel_style": "free",             # 可选：整页多格风格 free/regular
+  "characters": {                         # 可选但推荐：人物外貌描述，保证单故事内角色一致
+    "主角": "25-year-old Chinese office worker, shoulder-length straight black hair...",
+    "保洁阿姨": "50-year-old cleaning lady..."
+  },
   "panels": [
     {
       "id": "p1",
-      "scene": "A girl sitting on a chair hugging knees...",   # 画面描述（英文）
+      "scene": "{{主角}} sitting on a chair hugging knees...",   # 画面描述（英文），用 {{角色名}} 占位符
       "text": "等一个人。"   # 两风格均不画进图（仅供情绪推断/剧情记录），生图只留白，旁白后期手动添加
     }
   ]
@@ -67,6 +71,22 @@ import sys
 import time
 import urllib.request
 from io import BytesIO
+
+
+def render_scene_with_characters(scene: str, characters: dict) -> str:
+    """把 scene 里的 {{角色名}} 替换成完整外貌描述"""
+    if not characters:
+        return scene
+    sorted_names = sorted(characters.keys(), key=len, reverse=True)
+    result = scene
+    for name in sorted_names:
+        appearance = characters[name]
+        pattern = r'\{\{' + re.escape(name) + r'\}\}'
+        result = re.sub(pattern, appearance, result)
+    unmatched = re.findall(r'\{\{([^}]+)\}\}', result)
+    if unmatched:
+        print(f"⚠️  scene 中有未定义的角色: {', '.join(unmatched)}", file=sys.stderr)
+    return result
 
 # 生图路线：无 IMAGE_API_URL 时回退 minis-model-use。
 # 由 main 在启动时探测后置位（避免重复探测）。
@@ -599,6 +619,13 @@ def main() -> int:
     story = json.load(open(args.story_json))
     panels = story["panels"]
 
+    # 人物一致性校验（如果使用了 characters 字段）
+    if story.get("characters"):
+        print(f"[人物] 本故事定义了 {len(story['characters'])} 个角色:")
+        for name, desc in story["characters"].items():
+            print(f"  - {name}: {desc[:60]}{'...' if len(desc) > 60 else ''}")
+        print()
+
     # 解析风格：CLI > JSON > 默认 doodle
     style = args.style or story.get("style", "doodle")
     try:
@@ -744,6 +771,9 @@ def main() -> int:
 
     def _render_prompt(panel, framing: str = "vertical") -> str | None:
         scene = panel["scene"]
+        # 人物一致性：替换 {{角色名}} 占位符
+        if story.get("characters"):
+            scene = render_scene_with_characters(scene, story["characters"])
         fill = {"主体": scene, **var_values}
         # 两风格生图均不画字：doodle 与 colored-pencil 配方都不含【文字】占位符，
         # text 仅用于情绪推断与旁白规划。此处保留"配方含【文字】才填充"逻辑，便于未来配方扩展。
