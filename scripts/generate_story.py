@@ -59,6 +59,11 @@ Story JSON format:
 Environment variables:
   IMAGE_API_URL   - Image generation API base URL (e.g. https://host/v1)
   OPENAI_API_KEY  - API key for authentication
+
+生图路线（V3，--image-route 可强制指定）：
+  1. 模型自带生图（检测到 minis-model-use 即用，最优先）
+  2. API 直调（IMAGE_API_URL + OPENAI_API_KEY）
+  3. 两者都无 → 用 --export-prompts 导出提示词，拿去其他有生图能力的 agent
 """
 from __future__ import annotations
 
@@ -571,6 +576,10 @@ def main() -> int:
     ap.add_argument("--export-prompts", nargs="?", const="AUTO", default=None,
                     help="不生图，只把整套生图提示词整理成可复制的 Markdown 文档"
                          "（默认写到 <output-dir>/生图提示词.md，也可跟路径）")
+    ap.add_argument("--image-route", choices=["auto", "model", "api"], default="auto",
+                    help="生图路线（V3）：auto=先模型自带生图(minis-model-use)，没有再 API 直调"
+                         "（IMAGE_API_URL+OPENAI_API_KEY）；model=强制模型生图；api=强制 API 直调。"
+                         "两者都不可用时用 --export-prompts 导出提示词")
     ap.add_argument("--list-styles", action="store_true", help="List available styles and exit")
     ap.add_argument("--list-variants", action="store_true", help="List lighting/paper variant libraries and exit")
     args = ap.parse_args()
@@ -600,21 +609,36 @@ def main() -> int:
     api_url = os.environ.get("IMAGE_API_URL")
     api_key = os.environ.get("OPENAI_API_KEY")
     global _USE_MINI_MODEL
-    # 生图路线：优先 IMAGE_API_URL 直调；未设置则回退 minis-model-use（GPT Image 2）。
+    # 生图路线自适应（V3）：优先模型自带生图 → 再 API 直调 → 都没有则提示 --export-prompts。
+    # --image-route 可强制指定：model=只用模型生图；api=只用 API 直调；auto(默认)=按上述优先级探测。
     _USE_MINI_MODEL = False
-    if not api_url:
-        # minis-model-use 是 iSH 环境可用的生图代理
-        import shutil as _sh
-        if _sh.which("minis-model-use"):
-            print("[生图] IMAGE_API_URL 未设置，改用 minis-model-use (GPT Image 2)")
+    import shutil as _sh
+    has_mini = bool(_sh.which("minis-model-use"))
+    route = args.image_route or "auto"
+
+    if route == "model":
+        if not has_mini:
+            print("ERROR: --image-route model，但当前环境没有 minis-model-use", file=sys.stderr)
+            return 1
+        _USE_MINI_MODEL = True
+        print("[生图] 路线=模型自带生图 (minis-model-use，强制指定)")
+    elif route == "api":
+        if not api_url or not api_key:
+            print("ERROR: --image-route api，但 IMAGE_API_URL / OPENAI_API_KEY 未设置", file=sys.stderr)
+            return 1
+        print(f"[生图] 路线=API 直调 ({api_url}，强制指定)")
+    else:  # auto：先模型自带生图，再 API
+        if has_mini:
             _USE_MINI_MODEL = True
             api_url = ""   # generate_panel 里据此走 minis 路线
+            print("[生图] 路线=模型自带生图 (minis-model-use)；如需强制 API 直调用 --image-route api")
+        elif api_url and api_key:
+            print(f"[生图] 路线=API 直调 ({api_url})；如需强制模型生图用 --image-route model")
         else:
-            print("ERROR: 未找到 minis-model-use，且 IMAGE_API_URL 未设置", file=sys.stderr)
+            print("ERROR: 无可用生图路线（未找到 minis-model-use，且 IMAGE_API_URL/OPENAI_API_KEY 未设置）",
+                  file=sys.stderr)
+            print("替代方案：--export-prompts 导出提示词文档，拿去其他有生图能力的 agent 出图", file=sys.stderr)
             return 1
-    if not api_key and not _USE_MINI_MODEL:
-        print("ERROR: OPENAI_API_KEY not set", file=sys.stderr)
-        return 1
 
     story = json.load(open(args.story_json))
     panels = story["panels"]

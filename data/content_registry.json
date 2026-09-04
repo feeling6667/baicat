@@ -1,0 +1,24 @@
+{
+  "_note": "baicat V3 账号内容数据库",
+  "works": [],
+  "limits": {
+    "relationship_consecutive": 2,
+    "hook_consecutive": 2,
+    "theme_window": {
+      "window": 10,
+      "max": 2
+    },
+    "ending_window": {
+      "window": 5,
+      "max": 1
+    },
+    "object_window": {
+      "window": 10,
+      "max": 2
+    },
+    "setting_window": {
+      "window": 5,
+      "max": 2
+    }
+  }
+}
