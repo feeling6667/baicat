@@ -572,7 +572,10 @@ def main() -> int:
         help="整页原生生图（复制 craft-skills page-native 思路）：让 GPT 一次画出一整页多格漫画，"
              "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
     ap.add_argument("--text-in-image", action="store_true",
-                    help="生成时把旁白汉字直接画进图（顶部留白区一行手写楷体，带笔锋；整页多格路线不支持）")
+                    help="（默认已开启）生成时把旁白汉字直接画进图（顶部留白区一行手写楷体，带笔锋；整页多格路线不支持）。保留此参数仅为兼容旧命令。")
+    ap.add_argument("--no-text-in-image", action="store_true",
+                    help="关闭生图自带字，出无字底图（旁白后期用 letter_baicat --auto 加）。"
+                         "story JSON 里 \"text_in_image\": false 等价。")
     ap.add_argument("--export-prompts", nargs="?", const="AUTO", default=None,
                     help="不生图，只把整套生图提示词整理成可复制的 Markdown 文档"
                          "（默认写到 <output-dir>/生图提示词.md，也可跟路径）")
@@ -750,7 +753,14 @@ def main() -> int:
           + (f"  风格={mp_style}" if multipanel else ""))
     print()
 
-    text_in_image = bool(story.get("text_in_image", False)) or bool(args.text_in_image)
+    # text_in_image 默认开启（用户定案：出图一步字直接在图上，手写楷体）。
+    # 关闭方式：CLI --no-text-in-image 或 story JSON "text_in_image": false（JSON 显式值优先于默认）。
+    if getattr(args, "no_text_in_image", False):
+        text_in_image = False
+    elif args.text_in_image:
+        text_in_image = True
+    else:
+        text_in_image = bool(story.get("text_in_image", True))
     if text_in_image and multipanel:
         print("⚠️  text_in_image 暂不支持整页多格路线，本次忽略该选项。")
         text_in_image = False
