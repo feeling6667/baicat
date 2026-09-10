@@ -1,6 +1,20 @@
 {
   "_note": "baicat V3 账号内容数据库",
-  "works": [],
+  "works": [
+    {
+      "title": "休恋逝水",
+      "relationship": "异地网恋情侣",
+      "theme": "男友隐瞒病情离世，女生两年后决定放下",
+      "conflict": "热恋与绝症的拉扯，唯一一次奔现成诀别",
+      "hook_type": "结果先行",
+      "ending_type": "余震定格",
+      "emotion": "甜虐到释怀",
+      "setting": "线上与车站医院",
+      "object": "最后一条微信",
+      "id": "20260910_001",
+      "published_at": "2026-09-10"
+    }
+  ],
   "limits": {
     "relationship_consecutive": 2,
     "hook_consecutive": 2,
