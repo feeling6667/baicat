@@ -18,18 +18,19 @@ baicat V3 把整个内容生产链沉淀成一个 Skill，**AI 不当裁判**（
 
 双运行模式：**导演模式**五个确认点逐步确认；**批量模式**②③④全自动，一次囤多篇。
 
-## 两种风格
+## 三种风格
 
 | 中文名 | 英文名 | 调性 | 触发 |
 |--------|--------|------|------|
 | **彩铅（默认）** | `colored-pencil` | 低饱和高级灰，铅笔排线，真实比例，治愈克制 | 默认；或说"彩铅/彩色铅笔/治愈条漫" |
+| **彩铅留白** | `colored-pencil-airy` | 纯白底高调清爽，颗粒只上人物，黑字+红关键词，大量留白 | 说"干净/留白/透亮/清爽一点/像一只漫仔那种" |
 | **涂鸦** | `doodle` | 黑白线稿 + 唯一红色点缀，Q版简笔，丧系自嘲 | 明确强调"涂鸦/黑白涂鸦/丧系涂鸦" |
 
-**默认彩铅直接出图**；只有明确强调"涂鸦"才切涂鸦。
+**默认彩铅直接出图**；温情清爽题材可切彩铅留白；只有明确强调"涂鸦"才切涂鸦。暗黑压抑题材（霸凌、复仇）留米色暗调默认彩铅。
 
-| | |
-|:---:|:---:|
-| <img src="examples/style-colored-pencil.png" width="300"><br>**彩铅** colored-pencil<br>低饱和高级灰，铅笔排线，治愈克制 | <img src="examples/style-doodle.png" width="300"><br>**涂鸦** doodle<br>黑白线稿 + 红色点缀，Q版简笔 |
+| | | |
+|:---:|:---:|:---:|
+| <img src="examples/style-colored-pencil.png" width="300"><br>**彩铅** colored-pencil<br>低饱和高级灰，铅笔排线，治愈克制 | <img src="examples/style-colored-pencil-airy.png" width="300"><br>**彩铅留白** colored-pencil-airy<br>纯白底留白，颗粒只上人物，红词点睛 | <img src="examples/style-doodle.png" width="300"><br>**涂鸦** doodle<br>黑白线稿 + 红色点缀，Q版简笔 |
 
 ## 工作流（五确认点）
 

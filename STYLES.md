@@ -110,6 +110,51 @@ SCENE: 【主体】
 
 ---
 
+## colored-pencil-airy 彩铅留白（高调清爽版，V3.3 新增）
+
+> 2026-09-13 实测新增。解决旧彩铅"米色纸纹+全局颗粒"满铺导致的画面显脏问题。
+> 参考对象：抖音「一只漫仔」——纯白底摆人、背景 1-2 件必需品、黑字+红关键词。
+
+```
+A colored pencil illustration in a bright, airy, high-key style. Vertical composition.
+
+LAYOUT (strict): The top one third of the canvas is PURE FLAT WHITE paper containing ONLY
+the caption text. The text zone is clean white with NO paper grain, NO texture, NO gradient,
+and there is a clean hard boundary between the text zone and the illustration below —
+no fading, no transition, no gradient wash between text zone and drawing.
+
+ILLUSTRATION (bottom two thirds): 【主体】
+Colored pencil hatching texture appears ONLY on the characters and their key props —
+soft muted pastel colors (pale blue, warm gray, cream skin tone). Everything else stays
+pure white.
+
+BACKGROUND: eighty percent empty pure white space. At most ONE or TWO background objects,
+sketched in very light pale-gray pencil lines, barely visible, left uncolored. Absolutely
+NO walls, NO windows, NO full room, NO floor, NO shadows, NO large dark areas, and NO
+global paper texture — characters float on white paper.
+
+TEXT ON IMAGE (must be written exactly, simplified Chinese; the caller replaces {{caption}}
+with the actual narration lines, one line each; mark exactly ONE key phrase in bright red,
+all other characters pure black; the red phrase appears ONLY in the caption):
+{{caption}}
+
+No other text anywhere in the image. Any screen or sign contains only illegible blurred
+text blocks. No brand logos, no watermarks, no signatures.
+```
+
+约束：
+- **与旧彩铅（colored-pencil）的核心区别**：旧版"复古米色纸+全局纸纹+文字区上缘淡入"，airy 是"纯白底+颗粒只上人物+文字区硬分界"。airy **不使用【光影】【画纸】变量库**（那两套变量会把米色纸纹带回全图，前功尽弃）。
+- **颗粒纪律**：彩铅质感/排线只许出现在人物与关键道具上；背景、留白区、文字区一律无颗粒无纸纹。
+- **背景做减法**：1-2 件必需品、淡灰线稿不上色；禁墙/窗/地面/阴影；人物"浮"在白纸上。
+- **高调明度**：禁大面积暗部；重色只允许出现在头发线条、旁白黑字与红词上。
+- **红字纪律**：每格旁白只标 1 处关键词（情绪重音），全图除该词外无红色元素。
+- **硬分界**：上 1/3 纯白文字区与下 2/3 画面之间干净分界，**不做渐变淡入**（与旧彩铅的"上缘自然淡入"相反，二选一不可混用）。
+- **旁白机制**：`{{caption}}` 由调用方填入实际旁白（可多行，每行一句）。脚本 `generate_story.py` 默认追加的单行黑字覆盖块与 airy 的"多行+红词"不兼容——airy 带 2 行以上旁白或需要红词时，由 AI 手工拼装 prompt 直调生图（如 minis-model-use），不走脚本默认旁白块；单行且不需红词时可正常走脚本。
+- 可与 split2 双分镜共用：分隔线沿用极淡浅灰细线（约 #d9d9d9），每个分镜单元同样"上 1/3 纯白字区 + 下 2/3 留白画面"，字区与画面单元间同样硬分界。
+- 实测记录（2026-09-13，GPT Image 2，1024x1536）：《轻得像张废纸》p05 重制一次通过——21 字旁白逐字零错、红词精准标红、背景仅课桌角一个淡线稿元素、无脏颗粒；新旧对比图 `/var/minis/workspace/baicat_轻得像张废纸/对比_旧vs新_p05.jpg`。
+
+---
+
 ## colored-pencil-page 彩铅整页多格（原生生图）
 
 ```
