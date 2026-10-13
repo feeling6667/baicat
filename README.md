@@ -18,19 +18,26 @@ baicat V3 把整个内容生产链沉淀成一个 Skill，**AI 不当裁判**（
 
 双运行模式：**导演模式**五个确认点逐步确认；**批量模式**②③④全自动，一次囤多篇。
 
-## 三种风格
+## 四种风格
 
 | 中文名 | 英文名 | 调性 | 触发 |
 |--------|--------|------|------|
 | **彩铅（默认）** | `colored-pencil` | 低饱和高级灰，铅笔排线，真实比例，治愈克制 | 默认；或说"彩铅/彩色铅笔/治愈条漫" |
 | **彩铅留白** | `colored-pencil-airy` | 纯白底高调清爽，颗粒只上人物，黑字+红关键词，大量留白 | 说"干净/留白/透亮/清爽一点/像一只漫仔那种" |
+| **绘本水彩** | `frazee` | 儿童绘本：黑铅笔松线 + 透明水彩晕染，童趣暖调，纸纹可见 | 说"儿童绘本/绘本水彩/童趣水彩/FB-060/Marla Frazee" |
 | **涂鸦** | `doodle` | 黑白线稿 + 唯一红色点缀，Q版简笔，丧系自嘲 | 明确强调"涂鸦/黑白涂鸦/丧系涂鸦" |
 
-**默认彩铅直接出图**；温情清爽题材可切彩铅留白；只有明确强调"涂鸦"才切涂鸦。暗黑压抑题材（霸凌、复仇）留米色暗调默认彩铅。
+**默认彩铅直接出图**；温情清爽题材可切彩铅留白；儿童绘本/童趣题材可切绘本水彩（`frazee`，**必须垫
+FB-060 参考图**，见 SKILL.md 风格 D）；只有明确强调"涂鸦"才切涂鸦。暗黑压抑题材（霸凌、复仇）留米色暗调默认彩铅。
+
+> **旁白字体统一**：V3.4 起全部风格的图上文字都用**乐米蜡笔体 LemiLaBiTi**（童趣蜡笔手写体，
+> 免费商用）——生图自带字的 prompt 已写明该笔感；走确定性加字时用 `assets/fonts/` 里的真实字体文件，
+> 逐字零错。来源与授权见 `assets/fonts/README.md`。
 
 | | | |
 |:---:|:---:|:---:|
 | <img src="examples/style-colored-pencil.png" width="300"><br>**彩铅** colored-pencil<br>低饱和高级灰，铅笔排线，治愈克制 | <img src="examples/style-colored-pencil-airy.png" width="300"><br>**彩铅留白** colored-pencil-airy<br>纯白底留白，颗粒只上人物，红词点睛 | <img src="examples/style-doodle.png" width="300"><br>**涂鸦** doodle<br>黑白线稿 + 红色点缀，Q版简笔 |
+| <img src="examples/style-frazee.png" width="300"><br>**绘本水彩** frazee（FB-060 Marla Frazee）<br>黑铅笔松线 + 透明水彩，儿童绘本暖调 | | |
 
 ## 工作流（五确认点）
 
@@ -108,7 +115,7 @@ python3 scripts/content_registry.py --registry data/content_registry.json stats 
   PAGE LAYOUT 描述，一次调用 GPT 画出整页（上大格+中排小格+下大格、白边留白分隔）。
   产物只有 `story_page_<n>.jpeg`，无分镜单元。拼接版有扁长格裁切风险，长镜头故事推荐 page_native。
 - `anchor`：画风锚点图，锁多格画风一致；不填则第2格起用上一格输出参考。
-- `text`：**默认直接画进图里**（一行手写楷体，画进顶部留白），兼作光影情绪推断依据；单行≤20字、复杂节点≤2行≤35字。
+- `text`：**默认直接画进图里**（一行**乐米蜡笔体**蜡笔手写体，画进顶部留白），兼作光影情绪推断依据；单行≤20字、复杂节点≤2行≤35字。
 - `text_in_image`：**默认 true**（生图自带旁白，出图即成品）。`false` 或 CLI `--no-text-in-image` 出无字底图，旁白再用 letter_baicat --auto 加；整页多格路线不支持带字（自动忽略）。
 - `--export-prompts`：**不生图、零 API 成本**，把整套生图提示词（与脚本实际发送的完全一致）导出成可复制的 Markdown 文档（默认 `<output-dir>/生图提示词.md`），供拿去其他 agent 出图；文档含整篇统一的光影/画纸锁定值、每图的画面/旁白/尺寸/建议文件名与整块提示词。
 
@@ -163,9 +170,17 @@ baicat/
 │   ├── 抖音钩子规则.md             # V3 三类钩子 + 信息缺口机制
 │   ├── 抗同质化手工流程.md          # 醒图二次加工 SOP
 │   ├── 数据复盘表.md               # 发布数据复盘 + V3 反哺闭环
-│   └── lettering-manifest.example.json
+│   ├── lettering-manifest.example.json
+│   └── style-refs/
+│       └── FB-060-marla-frazee.webp  # frazee 绘本水彩的必垫画风参考图（handraw-style FB-060）
+├── assets/
+│   └── fonts/
+│       ├── LemiLaBiTi-Regular.ttf    # 乐米蜡笔体（旁白默认字体，免费商用；已 gitignore）
+│       ├── 乐米蜡笔体-授权说明.txt
+│       └── README.md                 # 字体来源/授权/缺失时怎么补
 └── examples/
     ├── style-colored-pencil.png
+    ├── style-colored-pencil-airy.png
     └── style-doodle.png
 ```
 
@@ -182,7 +197,7 @@ git clone https://github.com/feeling6667/baicat.git
 - **先讲透再画**：故事核、钩子、结局、视觉基调、人物卡都在出图前定好，不返工。
 - **逻辑优先于效果**：反转/留白/情绪不能让位于逻辑漏洞。
 - **配方驱动**：画风 prompt 存 `STYLES.md`，脚本不缩写，画风不漂移。
-- **留白为主**：顶部约1/3大留白区，旁白（手写楷体）画在留白内、画面集中下方，画面上缘淡入留白无硬分界，给情绪留呼吸空间。
+- **留白为主**：顶部约1/3大留白区，旁白（乐米蜡笔体蜡笔手写体）画在留白内、画面集中下方，画面上缘淡入留白无硬分界，给情绪留呼吸空间。
 - **越用越懂你**：每篇登记指纹，数据回流后组合分析反哺下批选题。
 
 ## License

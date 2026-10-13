@@ -200,7 +200,7 @@ hook / curiosity_gap / answer_delay 三字段
 **执行步骤**：
 
 1. **组装 story JSON**（阶段②③的产出落盘）：`title/style/lighting/paper/split2/characters/panels`，scene 含 `{{角色名}}`。按"生成工作流"章节跑 `generate_story.py`（路线自适应）。
-2. **加字**：默认**生图自带旁白**（`text_in_image` 默认开，手写楷体直接画进留白，出图即成品）；
+2. **加字**：默认**生图自带旁白**（`text_in_image` 默认开，乐米蜡笔体直接画进留白，出图即成品）；
    需要无字底图时用 `--no-text-in-image`（或 JSON `"text_in_image": false`），出图后再跑 `letter_baicat.py --auto` 确定性加字。
 3. **四层 QA（pass/fail 检查单，不打分不评级）**：
 
@@ -293,7 +293,7 @@ AI 基于统计输出**组合分析**（只报告已发生的数据规律，禁�
 禁止手工缩写或改写。AI 只需了解结构：基础画风段 → 【光影】+【画纸】（变量库序号）→ 【构图】→
 线条质感段 → 【分镜结构】→ 留白约束段（顶部约1/3纯纸色、画面上缘淡入、不画任何字）→ `SCENE: 【主体】`。
 
-**约束**：**生图默认自带旁白字**（手写楷体画进顶部留白，`text_in_image` 默认开）；关闭后顶部约1/3大留白区完全留空（画面上缘自然淡入留白、无硬分界），旁白由作者后期用 letter_baicat 添加；排线阴影而非色块；低饱和不鲜艳；光影+画纸同一篇锁一套（阶段3已定）。
+**约束**：**生图默认自带旁白字**（乐米蜡笔体画进顶部留白，`text_in_image` 默认开）；关闭后顶部约1/3大留白区完全留空（画面上缘自然淡入留白、无硬分界），旁白由作者后期用 letter_baicat 添加；排线阴影而非色块；低饱和不鲜艳；光影+画纸同一篇锁一套（阶段3已定）。
 
 ---
 
@@ -320,6 +320,44 @@ AI 基于统计输出**组合分析**（只报告已发生的数据规律，禁�
 
 **适用判断**：题材偏温情/治愈/清爽催泪时用 airy；暗黑压抑题材（霸凌、复仇、沉重反思）仍默认
 colored-pencil——米色暗调是那类故事的氛围资产，不是缺陷。两档由用户选或按题材建议，不混用配方。
+
+---
+
+## 风格 D：frazee 绘本水彩（FB-060 Marla Frazee，用户点名"儿童绘本/绘本水彩/童趣水彩"时）
+
+2026-10-13 新增：从 handraw-style 风格库引入 **FB-060 · Marla Frazee Playful Childlike Pencil
+& Watercolor Storybook**（原库 #316）。参考绘本作者 Marla Frazee（三次凯迪克荣誉奖），
+技法是**黑色 Prismacolor 铅笔线 + 透明水彩晕染**的儿童绘本插画：线条松、抖动、一笔到底；
+水彩淡淡铺在铅笔线旁边，留白露纸；人物圆脸小眼、短手短脚、动作满、有戏。
+
+| 维度 | 特征 |
+|------|------|
+| 画风 | 儿童绘本插画：黑色铅笔（彩铅）松线 + 透明水彩薄涂；有纸纹、有蜡笔/干笔质感 |
+| 线条 | 抖动松线、可见铅笔排线与复线；**不是**钢笔/墨线、**没有**黑色粗描边与漫画框 |
+| 人物 | 圆脸颊小下巴、小椭圆眼、短鼻小嘴、蓬乱飞发、短手短脚大头；全身动作有重量有调皮 |
+| 色彩 | 暖调低饱和绘本色（奶油黄、砖红、牛仔蓝、橄榄绿、暖褐、珊瑚粉），薄、不匀、局部露纸 |
+| 构图 | 与其他风格一致：顶部约 1/3 纯纸色留白给旁白，画面集中下方 2/3 |
+| 文字 | 旁白字体统一乐米蜡笔体（默认画进图；关掉后 letter_baicat 确定性加字） |
+| 适用 | 温情、童趣、成长、亲子、治愈、童年回忆；暗黑压抑题材仍用 colored-pencil |
+
+**配方真源**：`STYLES.md` 的「frazee 绘本水彩（FB-060 · Marla Frazee，儿童绘本铅笔+水彩）」代码块，
+只填 `【主体】`（+【光影】【画纸】【构图】【分镜结构】由脚本自动填），禁止手工缩写改写。
+
+**必垫参考图（该风格独有要求）**：FB-060 在 GPT Image 2 上"作者名激活偏弱、核心特征激活强"，
+而原库该风格的可写特征只有一句作者名——所以**必须把参考图当画风垫图传进去**：
+
+```json
+{ "style": "frazee",
+  "style_reference": "/var/minis/skills/baicat/references/style-refs/FB-060-marla-frazee.webp",
+  "lighting": 1, "paper": 1, "split2": true }
+```
+
+脚本行为：**story JSON 不写 `style_reference` 时自动用内置 FB-060 参考图**；首格把它当画风垫图
+（并自动追加"只参考画风、不准照抄主体/构图"的隔离指令），第 2 格起改用上一格成图做锚点链，
+保证跨格一致。**参考图里的孩子/黄雨衣/水花不得出现在成图里。**
+
+**支持范围**：逐格单图 + split2 双分镜（总格数 >6 时；与彩铅共用同一套上下拼接规则）；
+**不支持** multipanel 整页多格（该路线配方与布局模板绑彩铅纸张）。
 
 ---
 
@@ -468,14 +506,14 @@ colored-pencil——米色暗调是那类故事的氛围资产，不是缺陷。
 ### 2. 写故事脚本
 经阶段1-3已产出分镜，每格含：
 - `scene`（画面）：一句话描述场景动作（英文，填入配方的 `【主体】`）。
-- `text`（文字/旁白）：**默认直接画进图里**（一行手写楷体，画进顶部留白区）兼作剧情记录与彩铅光影情绪推断；生图仍留顶部约1/3大留白，字画在留白内。单行≤20字、复杂节点≤2行≤35字。
-- `text_in_image`（**默认 true**）：生图直接带汉字——把每格 `text` 以一行**手写楷体**（带笔锋、黑墨）直接画进顶部留白区（GPT Image 2 渲染）。关闭方式：`"text_in_image": false` 或 CLI `--no-text-in-image`——出无字底图，旁白后期用 `letter_baicat --auto` 加（逐字确定性、零错字）。整页多格路线不支持带字（自动忽略并提示，出无字图）。
+- `text`（文字/旁白）：**默认直接画进图里**（一行**乐米蜡笔体**蜡笔手写体，画进顶部留白区）兼作剧情记录与彩铅光影情绪推断；生图仍留顶部约1/3大留白，字画在留白内。单行≤20字、复杂节点≤2行≤35字。
+- `text_in_image`（**默认 true**）：生图直接带汉字——把每格 `text` 以一行**乐米蜡笔体式儿童蜡笔手写体**（圆润蜡笔笔感、黑墨）直接画进顶部留白区（GPT Image 2 渲染）。关闭方式：`"text_in_image": false` 或 CLI `--no-text-in-image`——出无字底图，旁白后期用 `letter_baicat --auto` 加（逐字确定性、零错字）。整页多格路线不支持带字（自动忽略并提示，出无字图）。
 
 情绪线设计：从一个状态渐变到另一个状态（如：期待→麻木→释然）。
 
 ### 3. 批量生成图片
 用 `scripts/generate_story.py`（见阶段4命令）：
-- story JSON 需含 `"style": "colored-pencil"`（或 doodle）、`"lighting": N`、`"paper": N`、`"split2": true`。
+- story JSON 需含 `"style": "colored-pencil"`（或 `doodle` / `colored-pencil-airy` / `frazee`）、`"lighting": N`、`"paper": N`、`"split2": true`（frazee 另需 `"style_reference": ".../FB-060-marla-frazee.webp"`）。
 - `anchor` 可选；不填则第2格起自动用上一格输出当画风参考。
 - 逐格调 GPT Image 2，保存 `{output_dir}/story_p1.jpeg` 等。
 
@@ -499,8 +537,8 @@ python3 /var/minis/skills/baicat/scripts/letter_baicat.py --manifest letter.json
 manifest 结构（示例见 `references/lettering-manifest.example.json`）：
 ```json
 {
-  "font_file": "/usr/share/fonts/noto/NotoSansCJK-Bold.ttc",
-  "font_index": 2,                     // 简体中文粗体
+  "font_file": null,                   // null=用默认乐米蜡笔体（推荐）；也可填其它 ttf/ttc 路径
+  "font_index": null,                  // 仅配合 font_file：ttf=0，Noto 简体粗体 ttc=2
   "image_root": "<输出目录>",
   "images": [
     { "file": "story_split_2_3.jpeg", "layout": "split2",
@@ -515,11 +553,13 @@ manifest 结构（示例见 `references/lettering-manifest.example.json`）：
 - **逐字字形检查**：缺字报错，不画豆腐块
 - **规范校验**：单行>20字、两行>35字、>2行、留白放不下 → 均报错并给出提示
 - **自动缩字号**：长文本会缩到能放进留白带（下限 26px）
-- 每个字符用 `NotoSansCJK-Bold` index=2（简体粗体黑色），顶部居中
+- 每个字符用 **乐米蜡笔体 LemiLaBiTi（V3.4 起全风格默认）**、黑色、顶部居中；字体文件在
+  `assets/fonts/LemiLaBiTi-Regular.ttf`（搜索顺序：skill 自带 → `/var/minis/shared/fonts/` → Noto 黑体兜底）
 
 产物：`<原名>_lettered.jpg`（带字成品，保留无字底图）+ 同名 `.ledger.json`（记录源图哈希/字体/字号/坐标）。
 
-> 未装中文字体时先 `apk add font-noto-cjk`，或 manifest 用 `font_file` 指定其它 CJK 字体路径。
+> 字体缺失时脚本会**明确警告并回退 Noto 黑体**，不会静默换字；临时换字体用 `--font <路径> [--font-index N]`，
+> 或 manifest 的 `font_file`。字体来源与授权见 `assets/fonts/README.md`（免费商用）。
 
 **auto 批量模式（推荐，一条命令加整套图）**：
 不需要手写 images 清单，直接从 story JSON + 产物目录自动按分镜顺序映射加字：
@@ -540,7 +580,7 @@ python3 /var/minis/skills/baicat/scripts/letter_baicat.py \
 3. `letter_baicat.py` 确定性加字（manifest 指定 font_file/font_index=2、layout=single）
 4. **⚠️ 拼接脚本对非标准尺寸单元会 center-crop**（会把顶部刚加好的字裁掉）。解法：手动拼接——`lettered` 单元 `resize(1024,768)` 作上半 + 旧拼接图 `crop(0,768,1024,1536)` 作下半，Pillow 上下拼回 1024×1536。
 
-> 代价：`NotoSansCJK` 黑粗体与 GPT Image 2 手写楷体并排略有字体差异，视觉可接受；**优先级高于"字被裁/丢失"**——字完整 > 字体统一。
+> 代价：字画得进图、也放得下，但**字是"贴"上去的**，与生图自带字的笔感略有差异（同为乐米蜡笔体风格，视觉可接受）；**优先级高于"字被裁/丢失"**——字完整 > 一切。
 也可用 manifest 的 `"auto": true` + `"story_json"` + `"output_dir"` 字段等价触发。
 
 ### 4. 组装图文故事页面
@@ -548,8 +588,8 @@ python3 /var/minis/skills/baicat/scripts/letter_baicat.py \
 
 ## 关键约束
 
-- **生图默认自带旁白（带字成品）** — doodle 与 colored-pencil 默认都把每格 `text` 以**一行手写楷体**（带笔锋、黑墨）画进顶部**约1/3大留白区**（prompt 末尾追加 NARRATION TEXT 覆盖块，构图占位符同步切为"留白区预留给一行文字"）；出图即成品，无需再加字。整页多格路线不支持，自动忽略。确需无字底图时才关（`--no-text-in-image` / JSON false）。
-- **无字底图+确定性加字（备选路线）** — 关掉 text_in_image 后，生图只在每格/分镜顶部留干净留白（纯纸色、画面上缘自然淡入无硬分界）；旁白用 `letter_baicat.py --auto` 后期确定性绘制（Noto 黑粗体、逐字零错、像素级可复现；单行≤20字、复杂节点≤2行≤35字、顶部居中）。
+- **生图默认自带旁白（带字成品）** — doodle 与 colored-pencil 默认都把每格 `text` 以**一行乐米蜡笔体手写体**（儿童蜡笔笔感、黑墨）画进顶部**约1/3大留白区**（prompt 末尾追加 NARRATION TEXT 覆盖块，构图占位符同步切为"留白区预留给一行文字"）；出图即成品，无需再加字。整页多格路线不支持，自动忽略。确需无字底图时才关（`--no-text-in-image` / JSON false）。
+- **无字底图+确定性加字（备选路线）** — 关掉 text_in_image 后，生图只在每格/分镜顶部留干净留白（纯纸色、画面上缘自然淡入无硬分界）；旁白用 `letter_baicat.py --auto` 后期确定性绘制（**乐米蜡笔体**、逐字零错、像素级可复现；单行≤20字、复杂节点≤2行≤35字、顶部居中）。
 - **人物造型各格一致** — 同篇风格统一；连续分镜用 anchor 锚点图或逐格参考锁定。
 - **彩铅>6格用双分镜** — 1格封面单图 + 其余两两拼一张3:4双分镜图（极淡浅灰细线，禁粗黑边框）；封面必为单图。
 - **信息分工** — 画面+后期旁白承载主线骨架与视觉情绪；人物背景/对话/细节/完整逻辑放正文；正文结尾放开放式互动提问。

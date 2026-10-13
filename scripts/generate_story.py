@@ -155,6 +155,22 @@ STYLES_PATH = os.path.join(ROOT, "STYLES.md")
 USAGE_PATH = os.path.join(ROOT, "USAGE.json")  # 抗同质化变量使用记录
 PLACEHOLDER_PATTERN = re.compile(r"【([^】]+)】")
 
+# 支持双分镜拼图的画风（V3.4：frazee 绘本水彩同样支持上下双分镜）
+SPLIT2_STYLES = {"colored-pencil", "frazee"}
+# 支持整页多格（multipanel）的画风：配方与布局模板与彩铅纸张绑定，暂只给 colored-pencil
+MULTIPANEL_STYLES = {"colored-pencil"}
+
+# 风格参考图隔离指令：仅在真的把参考图当"画风垫图"传进去时追加，
+# 防止模型照抄参考图的主体/构图（来源：handraw-style 的 reference-isolation 约定）。
+STYLE_REF_ISOLATION = (
+    "\n\nSTYLE REFERENCE IMAGE (attached): use the attached image ONLY as a style reference. "
+    "Extract only its stylistic qualities — linework, pencil handling, watercolor washes, "
+    "material texture, paper, color tendencies and overall visual language. Do NOT use, copy or "
+    "carry over any subject, person, animal, clothing, prop, action, pose, setting, background, "
+    "composition, layout, text or story from the reference image. The SCENE described above is "
+    "the sole source of the image content."
+)
+
 
 def extract_template(style_id: str) -> str:
     """从 STYLES.md 原样提取指定画风的代码块配方，不缩写不改动。"""
@@ -396,17 +412,18 @@ def narration_text_block(text: str, framing: str) -> str:
     """text_in_image 开启时追加到 prompt 末尾的"带字覆盖块"。
 
     与配方/构图里的"顶部留白不画字"构成明确的一次性覆盖：留白带的位置与大小不变，
-    但其中必须包含且仅包含一行指定的旁白文字（顶部居中手写楷体、黑墨，
-    参考抖音怀旧条漫的楷体旁白风；注意与后期加字路线的黑粗体不同路）。
+    但其中必须包含且仅包含一行指定的旁白文字（顶部居中，**乐米蜡笔体式儿童蜡笔手写体**、
+    黑墨；V3.4 起全风格统一该字体，与 letter_baicat.py 的确定性加字同源）。
     """
     y_hint = ("about 18% of the image height" if framing == "vertical"
               else "about 17% of this half-panel's height")
     return (
         "\n\nNARRATION TEXT (SINGLE OVERRIDE): One exception to the blank-band rule above — "
         f"draw EXACTLY ONE line of Chinese narration text inside the blank paper band: 「{text}」\n"
-        "Style: Chinese handwritten kaiti (regular script) — natural brush-pen strokes with "
-        "visible tip entry and exit (brush flicks, 笔锋), medium weight, slightly loose "
-        "letter-spacing, warm literary hand-written feel like neat brush-pen kaiti calligraphy; "
+        "Style: hand-written children's crayon lettering — the look of the free Chinese font "
+        "LemiLaBiTi (乐米蜡笔体): rounded chunky handwritten strokes, slightly uneven and wobbly, "
+        "soft waxy crayon edges, playful childlike handwriting, generous letter spacing, no "
+        "serifs, no kaiti/brush-calligraphy flicks, no typeface-perfect geometry; "
         "pure black ink, horizontally centered; its vertical center sits at " + y_hint + ", well "
         "above the drawing. Character height about 4.5% of the image width, generous margins "
         "on both sides, the line fits comfortably inside the blank band. "
@@ -572,7 +589,7 @@ def main() -> int:
         help="整页原生生图（复制 craft-skills page-native 思路）：让 GPT 一次画出一整页多格漫画，"
              "而非逐格生成+拼接。story JSON 可用 \"page_native\": true 开启（须配合 multipanel）。")
     ap.add_argument("--text-in-image", action="store_true",
-                    help="（默认已开启）生成时把旁白汉字直接画进图（顶部留白区一行手写楷体，带笔锋；整页多格路线不支持）。保留此参数仅为兼容旧命令。")
+                    help="（默认已开启）生成时把旁白汉字直接画进图（顶部留白区一行乐米蜡笔体式儿童蜡笔手写体；整页多格路线不支持）。保留此参数仅为兼容旧命令。")
     ap.add_argument("--no-text-in-image", action="store_true",
                     help="关闭生图自带字，出无字底图（旁白后期用 letter_baicat --auto 加）。"
                          "story JSON 里 \"text_in_image\": false 等价。")
@@ -714,6 +731,15 @@ def main() -> int:
 
     # 画风锚点图（可选）：连续故事每格都传，锁多格画风一致
     anchor_path = story.get("anchor")
+    # 画风参考图（可选，V3.4）：如 frazee 用 FB-060 参考图当"画风垫图"，只在无上格成图时使用，
+    # 且追加"只参考画风、不准照抄主体/构图"的隔离指令。
+    style_ref_path = story.get("style_reference")
+    if not style_ref_path and style == "frazee":
+        _default_style_ref = os.path.join(ROOT, "references", "style-refs",
+                                          "FB-060-marla-frazee.webp")
+        if os.path.isfile(_default_style_ref):
+            style_ref_path = _default_style_ref
+            print("[画风] frazee 未填 style_reference，自动使用内置 FB-060 参考图")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -735,7 +761,7 @@ def main() -> int:
     # ---- 整页多格模式判定 ----
     # 仅 colored-pencil；需要显式开启（CLI --multipanel 或 story JSON "multipanel": true）。
     # 总格数 ≥5 才启用；否则回退逐格单图。每页装 3-5 格，封面(首格)单独出单图。
-    multipanel = (args.multipanel or bool(story.get("multipanel", False))) and style == "colored-pencil"
+    multipanel = (args.multipanel or bool(story.get("multipanel", False))) and style in MULTIPANEL_STYLES
     if multipanel:
         multipanel = len(panels) >= 5
         if len(panels) < 5:
@@ -753,7 +779,7 @@ def main() -> int:
           + (f"  风格={mp_style}" if multipanel else ""))
     print()
 
-    # text_in_image 默认开启（用户定案：出图一步字直接在图上，手写楷体）。
+    # text_in_image 默认开启（用户定案：出图一步字直接在图上，乐米蜡笔体）。
     # 关闭方式：CLI --no-text-in-image 或 story JSON "text_in_image": false（JSON 显式值优先于默认）。
     if getattr(args, "no_text_in_image", False):
         text_in_image = False
@@ -896,13 +922,17 @@ def main() -> int:
         style_prompt = _render_prompt(panel, framing=("square" if job.get("unit_size") == "square" else "vertical"))
         if style_prompt is None:
             return None
+        anchor = _anchor_for(idx)
+        if (anchor and style_ref_path
+                and os.path.abspath(anchor) == os.path.abspath(str(style_ref_path))):
+            style_prompt += STYLE_REF_ISOLATION
 
         print(f"[{out_key}] {pid}: generating ({size})...")
         sys.stdout.flush()
         t0 = time.time()
         try:
             img_bytes = generate_panel(scene, style_prompt, api_url, api_key,
-                                       _anchor_for(idx), size=size)
+                                       anchor, size=size)
             with open(out_path, "wb") as f:
                 f.write(img_bytes)
             elapsed = time.time() - t0
@@ -969,6 +999,12 @@ def main() -> int:
                         "note": f"出图后由脚本按布局自动拼成 story_page_{job['page']}.jpeg",
                     })
 
+        # 导出前把 {{角色名}} 占位符替换成真实外貌描述，保证复制出去就能用
+        for e in entries:
+            e["scene"] = render_scene_with_characters(
+                e.get("scene", ""), story.get("characters") or {}
+            )
+
         lines = [
             f"# 《{story.get('title', 'untitled')}》生图提示词包",
             "",
@@ -984,6 +1020,8 @@ def main() -> int:
                   "`python3 /var/minis/skills/baicat/scripts/letter_baicat.py --auto "
                   "--story-json story.json --output-dir <输出目录>` 自动加字"),
             "- **画风一致性**：先出第 1 张；之后每张都把第 1 张成图作为画风参考图（垫图）一并发给 agent",
+            *([f"- **画风参考图（本风格必垫）**：`{style_ref_path}` —— 与提示词一起发给 agent，"
+               "提示词里已含『只参考画风、不准照抄主体/构图』的隔离指令"] if style_ref_path else []),
             f"- **共 {len(entries)} 张图**；若 agent 不吃英文提示词可让它翻译，"
             "但留白比例/文字约束/光影画纸描述必须原样保留",
             "",
@@ -992,6 +1030,8 @@ def main() -> int:
         ]
         for i, e in enumerate(entries, 1):
             final = (e["prompt"] or "") + (f"\n\nSCENE: {e['scene']}" if e["scene"].strip() else "")
+            if style_ref_path:
+                final += STYLE_REF_ISOLATION
             lines += [
                 f"## {i}. {e['title']}",
                 "",

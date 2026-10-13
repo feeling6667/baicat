@@ -15,8 +15,8 @@
 
 manifest 结构:
 {
-  "font_file": "/usr/share/fonts/noto/NotoSansCJK-Bold.ttc",
-  "font_index": 2,                 // Noto Sans CJK SC Bold（简体粗体）
+  "font_file": null,               // 可选，null=用默认的乐米蜡笔体；也可指定其它 ttf/ttc
+  "font_index": null,              // 可选，仅配合 font_file：ttc 用（如 Noto 简体粗体=2），ttf 用 0
   "font_color": [30,30,30],        // 可选，默认近黑板
   "image_root": ".",               // 可选，图片相对路径的基目录
   "out_suffix": "_lettered",       // 可选，默认 "_lettered"
@@ -28,7 +28,11 @@ manifest 结构:
   ]
 }
 
-如不指定 font_file，自动在常见路径搜索 Noto CJK Bold。
+默认字体（V3.4 起）= **乐米蜡笔体 LemiLaBiTi Regular**（童趣蜡笔手写体，免费商用），
+按以下顺序搜索：本 skill `assets/fonts/LemiLaBiTi-Regular.ttf` →
+`/var/minis/skills/baicat/assets/fonts/…` → `/var/minis/shared/fonts/…`；
+都找不到才回退 Noto Sans CJK 黑体（并明确警告，不静默换字）。
+想临时换字体：命令行 `--font <路径> [--font-index N]`，或 manifest 的 font_file。
 """
 from __future__ import annotations
 
@@ -67,6 +71,24 @@ NOTO_CJK_CANDIDATES = [
     "/System/Library/Fonts/PingFang.ttc",           # macOS
 ]
 
+# 旁白默认字体（V3.4）：乐米蜡笔体（LemiLaBiTi，童趣蜡笔手写体，免费商用）。
+# 每项 = (字体文件路径, 该文件的默认字面索引)：TTF 用 0，Noto TTC 的简体粗体用 2。
+# 搜索顺序：skill 自带 → 绝对路径兜底 → 共享目录 → Noto 黑体兜底。
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_SKILL_ROOT = os.path.dirname(_SCRIPT_DIR)
+CRAYON_FONT_CANDIDATES = [
+    os.path.join(_SKILL_ROOT, "assets", "fonts", "LemiLaBiTi-Regular.ttf"),
+    "/var/minis/skills/baicat/assets/fonts/LemiLaBiTi-Regular.ttf",
+    "/var/minis/shared/fonts/LemiLaBiTi-Regular.ttf",
+]
+BAICAT_FONT_CANDIDATES: list[tuple[str, int]] = (
+    [(p, 0) for p in CRAYON_FONT_CANDIDATES]
+    + [(p, 2) for p in NOTO_CJK_CANDIDATES]
+)
+CRAYON_FONT_HINT = (
+    "assets/fonts/README.md（猫啃网免费商用字体「乐米蜡笔体」）"
+)
+
 
 class LetterError(ValueError):
     """确定性落字的可报告错误（缺字/放不下/无留白等），报告后由用户处理。"""
@@ -80,19 +102,48 @@ def sha256_path(path: Path) -> str:
     return h.hexdigest()
 
 
-def find_font_file(font_file: str | None, font_index: int) -> tuple[str, int]:
-    """查找中文字体。若指定 font_file 直接用它；否则自动搜索候选。"""
+def _font_loadable(path: str, index: int) -> bool:
+    """字体文件+字面索引能否真的加载（防 ttc 索引越界 / 坏文件）。"""
+    try:
+        ImageFont.truetype(path, 32, index=index)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def resolve_font(font_file: str | None, font_index: int | None) -> tuple[str, int]:
+    """确定旁白字体文件与字面索引。
+
+    优先级：显式 font_file（manifest/--font 指定）> 乐米蜡笔体（skill 自带 → 共享目录）
+    > Noto Sans CJK 黑体兜底（并打印警告，绝不静默换字）。
+    font_index 只在显式指定 font_file 时生效；候选自带各自正确的索引。
+    """
     if font_file:
         if not os.path.isfile(font_file):
             raise LetterError(f"指定的字体文件不存在: {font_file}")
-        return font_file, font_index
-    for cand in NOTO_CJK_CANDIDATES:
-        if os.path.isfile(cand):
-            print(f"[字体] 使用 {cand} (index={font_index})")
-            return cand, font_index
+        idx = 0 if font_index is None else int(font_index)
+        if _font_loadable(font_file, idx):
+            print(f"[字体] 使用 {font_file} (index={idx})")
+            return font_file, idx
+        if idx != 0 and _font_loadable(font_file, 0):
+            print(f"[字体] {font_file} 的 index={idx} 不可用，改用 index=0")
+            return font_file, 0
+        raise LetterError(f"无法加载字体 {font_file} (index={idx})")
+
+    for cand, idx in BAICAT_FONT_CANDIDATES:
+        if not os.path.isfile(cand) or not _font_loadable(cand, idx):
+            continue
+        if cand in CRAYON_FONT_CANDIDATES:
+            print(f"[字体] 乐米蜡笔体 LemiLaBiTi: {cand} (index={idx})")
+        else:
+            print(f"[字体] ⚠️  未找到乐米蜡笔体（LemiLaBiTi-Regular.ttf），"
+                  f"回退到 {cand} (index={idx})")
+            print(f"       恢复蜡笔体：见 {CRAYON_FONT_HINT}，"
+                  f"或用 --font <ttf 路径> 指定。")
+        return cand, idx
     raise LetterError(
-        "未找到中文字体。请安装 font-noto-cjk (apk add font-noto-cjk) 或用 "
-        "--manifest 的 font_file 指定字体路径。"
+        "未找到任何可用中文字体。请把乐米蜡笔体放到 assets/fonts/LemiLaBiTi-Regular.ttf "
+        "（见 assets/fonts/README.md），或用 --font 指定字体路径。"
     )
 
 
@@ -293,6 +344,10 @@ def arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--output-dir", default=".", help="auto 模式：已生成产物目录")
     ap.add_argument("--image-root", default=None,
                     help="图片基目录（默认=manifest.image_root 或 auto 的 output-dir）")
+    ap.add_argument("--font", default=None,
+                    help="覆盖旁白字体文件路径（默认乐米蜡笔体 assets/fonts/LemiLaBiTi-Regular.ttf）")
+    ap.add_argument("--font-index", type=int, default=None,
+                    help="字面索引，仅配合 --font 或 manifest.font_file（ttc 才需要，如 Noto 简体粗体=2）")
     return ap
 
 
@@ -595,10 +650,11 @@ def main() -> int:
         image_root = Path(manifest.get("image_root", "."))
         images = manifest.get("images", [])
 
-    font_file_raw = manifest.get("font_file")
-    font_index = int(manifest.get("font_index", 2))
+    font_file_raw = args.font or manifest.get("font_file")
+    font_index_raw = args.font_index if args.font_index is not None else manifest.get("font_index")
+    font_index_req = int(font_index_raw) if font_index_raw is not None else None
     color = parse_font_color(manifest.get("font_color", [30, 30, 30]))
-    font_file, font_index = find_font_file(font_file_raw, font_index)
+    font_file, font_index = resolve_font(font_file_raw, font_index_req)
     out_suffix = manifest.get("out_suffix", "_lettered")
 
     for it in images:

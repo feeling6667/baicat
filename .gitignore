@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 USAGE.json
 *.bak.*
+
+# 第三方大体积字体（可重新下载，见 assets/fonts/README.md）
+assets/fonts/*.ttf
+assets/fonts/*.otf

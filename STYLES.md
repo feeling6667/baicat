@@ -7,7 +7,7 @@
 占位符说明：
 - `【主体】`：单格画面场景描述（由故事脚本的 panel.scene 填入），必填。
 - **两风格生图默认自带旁白字**：doodle 涂鸦与 colored-pencil 彩铅默认都把 `text` 以一行
-  手写楷体画进顶部留白（脚本追加 NARRATION TEXT 覆盖块实现，配方本体不变，仍是留白结构）。
+  乐米蜡笔体（儿童蜡笔手写体，V3.4 起全风格统一）画进顶部留白（脚本追加 NARRATION TEXT 覆盖块实现，配方本体不变，仍是留白结构）。
   关闭后（`--no-text-in-image`/JSON false）出纯无字底图，旁白由作者用 letter_baicat 后期加。
   `text` 字段始终兼作剧情与光影情绪推断的记录。
 - `【光影】且含变量库`（仅 colored-pencil）：光影氛围变量，来自下方"光影氛围变量库"，
@@ -58,7 +58,7 @@ Diary-style emotional illustration, melancholic yet humorous mood.
 SCENE: 【主体】
 ```
 
-约束：每格只有一个红色元素；人物造型各格一致；**生图默认自带旁白字**（手写楷体画进顶部留白；`--no-text-in-image` 关闭后留白区完全留空，旁白后期用 letter_baicat 加）；若需对话气泡轮廓可后期绘制再填字。
+约束：每格只有一个红色元素；人物造型各格一致；**生图默认自带旁白字**（乐米蜡笔体画进顶部留白；`--no-text-in-image` 关闭后留白区完全留空，旁白后期用 letter_baicat 加）；若需对话气泡轮廓可后期绘制再填字。
 
 ---
 
@@ -99,7 +99,7 @@ SCENE: 【主体】
 - **双分镜标准（仅 colored-pencil，故事总格数>6 时自动启用）**：
   - 单张竖版 3:4（1024x1536）画布内划分上下两个叙事画面。
   - 分镜分隔用一条**极淡浅灰色细线**（约 #d9d9d9），**禁止粗黑漫画边框**。
-  - 每个分镜上方预留**约1/3大留白区**（分镜单元按 35% 留白生成，拼接居中裁切后成图每格仍保住约30%）；**旁白默认由生图直接画进该留白区**（手写楷体，text_in_image 默认开；关闭后才走后期 letter_baicat 加字）。
+  - 每个分镜上方预留**约1/3大留白区**（分镜单元按 35% 留白生成，拼接居中裁切后成图每格仍保住约30%）；**旁白默认由生图直接画进该留白区**（乐米蜡笔体式儿童蜡笔手写体，text_in_image 默认开；关闭后才走后期 letter_baicat 加字，字体同样是乐米蜡笔体）。
   - 同一张图内上下两分镜光影色调统一；分镜构图均衡、元素不拥挤，彩铅手绘细节完整清晰、不压缩笔触质感。
 - **封面必为单图**，不能一图两格（封面用竖版单格完整构图，不同时容纳两格）。
 - **彩铅生图不画文字**：竖版单图和双分镜都在顶部留**约1/3大留白区**（纯纸色、上缘无分界线），画面内不写任何中文/字符/水印；
@@ -152,6 +152,77 @@ text blocks. No brand logos, no watermarks, no signatures.
 - **旁白机制**：`{{caption}}` 由调用方填入实际旁白（可多行，每行一句）。脚本 `generate_story.py` 默认追加的单行黑字覆盖块与 airy 的"多行+红词"不兼容——airy 带 2 行以上旁白或需要红词时，由 AI 手工拼装 prompt 直调生图（如 minis-model-use），不走脚本默认旁白块；单行且不需红词时可正常走脚本。
 - 可与 split2 双分镜共用：分隔线沿用极淡浅灰细线（约 #d9d9d9），每个分镜单元同样"上 1/3 纯白字区 + 下 2/3 留白画面"，字区与画面单元间同样硬分界。
 - 实测记录（2026-09-13，GPT Image 2，1024x1536）：《轻得像张废纸》p05 重制一次通过——21 字旁白逐字零错、红词精准标红、背景仅课桌角一个淡线稿元素、无脏颗粒；新旧对比图 `/var/minis/workspace/baicat_轻得像张废纸/对比_旧vs新_p05.jpg`。
+
+---
+
+## frazee 绘本水彩（FB-060 · Marla Frazee，儿童绘本铅笔+水彩）
+
+> 来源：handraw-style 风格库 **FB-060 · Marla Frazee Playful Childlike Pencil & Watercolor Storybook**
+> （原库编号 #316，分组 FB 经典绘本叙事；参考绘本作者 Marla Frazee，三次凯迪克荣誉奖，
+> 技法为黑色 Prismacolor 铅笔线 + 水彩晕染）。2026-10-13 引入 baicat。
+>
+> **激活说明**：该风格在 GPT Image 2 上属"作者名激活偏弱、核心特征激活强"，且原库 traits 只有
+> 一句作者名（没有可用正向特征），按原库策略**必须垫 FB-060 参考图**——
+> `references/style-refs/FB-060-marla-frazee.webp`，story JSON 用 `"style_reference"` 传；
+> 脚本会自动追加"只参考画风、不准照抄主体/构图"的隔离指令。参考图里的孩子、黄雨衣、水花
+> 一律不得出现在成图里。
+
+```
+Marla Frazee Playful Childlike Pencil & Watercolor Storybook.
+A hand-drawn children's picture-book illustration in the warm, playful style of Marla Frazee
+(a Caldecott Honor picture-book artist): loose, confident BLACK colored-pencil (Prismacolor)
+linework drawn quickly in one continuous pass — slightly wobbly, imperfect, expressive
+contours with visible pencil strokes and sketchy double-lines; no ink pen, no thick black
+comic outline, no comic frames. Transparent watercolor washes laid in loosely over and beside
+the pencil lines, soft blooms and uneven edges where the water pools, dry-brush texture and
+visible pencil hatching for shadow; the colors stay transparent so the pencil drawing still
+reads through them. Playful, childlike and alive.
+
+Characters are drawn the way a gifted picture-book artist draws children: round cheeks and
+small chins, tiny oval eyes with a dot or a small curved lash-line, a simple short nose, a
+small smiling or pouting mouth, tousled flyaway hair, sturdy short limbs and slightly
+oversized heads; whole-body poses full of motion, weight and mischief — jumping, running,
+reaching, splashing, stomping, hiding, hugging — seen from a child's eye level. Expressive
+hands and feet, never stiff, never photoreal, never anime.
+
+【光影】. 【画纸】.
+
+Palette: warm muted picture-book colors — butter yellow, brick red, denim blue, olive green,
+warm brown, soft coral — laid thin and slightly uneven, with white paper left showing in
+places. No neon, no flat vector fills, no airbrush gradients, no glossy rendering.
+
+【构图】
+
+Loose hand-drawn pencil lines, visible pencil hatching, soft watercolor bloom edges, paper
+grain and dry-brush texture kept intact and uncompressed. Balanced uncluttered composition,
+subject not crowded against the edges.
+
+【分镜结构】
+
+Warm, gentle, quietly moving children's-storybook atmosphere.
+
+A LARGE clean blank paper area covering roughly the TOP THIRD of the image (and the top third
+of each panel in split composition) is reserved as a narration area. Keep this blank area
+COMPLETELY EMPTY: do NOT draw any Chinese text, character, letter, label or watermark in it —
+no narration, no subtitles, nothing. The blank area is pure paper color: no pencil strokes, no
+objects, no watercolor, no texture marks inside it. The scene below breathes into it: the upper
+background of the drawing fades softly and gradually into the blank paper — no hard edge, no
+visible boundary line.
+
+SCENE: 【主体】
+```
+
+约束：
+- **必垫参考图**：`references/style-refs/FB-060-marla-frazee.webp`（story JSON `"style_reference"`）。
+  该参考图只贡献线条、水彩、纸张与配色倾向；主体/服装/场景/构图以本 story 的 scene 为准。
+- **光影+画纸整篇锁一套**（与彩铅同一套变量库与轮换规则；脚本自动锁死）。
+- **不支持整页多格（multipanel）**；**支持 split2 双分镜**（总格数 >6 时，与彩铅共用同一套
+  上下拼接规则：每单元 35% 顶部留白、极淡浅灰细线分隔）。
+- **旁白字体统一乐米蜡笔体**：默认 `text_in_image` 把旁白画进图（prompt 已写明"乐米蜡笔体式
+  儿童蜡笔手写体"）；关掉后走 `letter_baicat.py --auto` 用真实字体文件确定性加字（字形 100% 准）。
+- **人物一致性**：照旧用 `{{角色名}}` 占位符 + 人物卡；首格之后以上一张成图为锚点链，锁定跨格一致。
+- **适用题材**：温情、童趣、成长、亲子、治愈、童年回忆。暗黑压抑题材（霸凌/复仇/沉重反思）
+  仍走 `colored-pencil`——米色暗调是那类故事的氛围资产。
 
 ---
 
