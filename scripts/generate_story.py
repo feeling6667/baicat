@@ -734,12 +734,8 @@ def main() -> int:
     # 画风参考图（可选，V3.4）：如 frazee 用 FB-060 参考图当"画风垫图"，只在无上格成图时使用，
     # 且追加"只参考画风、不准照抄主体/构图"的隔离指令。
     style_ref_path = story.get("style_reference")
-    if not style_ref_path and style == "frazee":
-        _default_style_ref = os.path.join(ROOT, "references", "style-refs",
-                                          "FB-060-marla-frazee.webp")
-        if os.path.isfile(_default_style_ref):
-            style_ref_path = _default_style_ref
-            print("[画风] frazee 未填 style_reference，自动使用内置 FB-060 参考图")
+    # 说明：原库判定脚本对 gpt-image-2 + FB-060 的结论是 use_reference_image=false（不需要垫图），
+    # 所以这里不再自动挂参考图；用户显式写 style_reference 时才当画风垫图用。
 
     os.makedirs(args.output_dir, exist_ok=True)
 

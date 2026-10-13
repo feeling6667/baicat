@@ -325,39 +325,42 @@ colored-pencil——米色暗调是那类故事的氛围资产，不是缺陷。
 
 ## 风格 D：frazee 绘本水彩（FB-060 Marla Frazee，用户点名"儿童绘本/绘本水彩/童趣水彩"时）
 
-2026-10-13 新增：从 handraw-style 风格库引入 **FB-060 · Marla Frazee Playful Childlike Pencil
-& Watercolor Storybook**（原库 #316）。参考绘本作者 Marla Frazee（三次凯迪克荣誉奖），
-技法是**黑色 Prismacolor 铅笔线 + 透明水彩晕染**的儿童绘本插画：线条松、抖动、一笔到底；
-水彩淡淡铺在铅笔线旁边，留白露纸；人物圆脸小眼、短手短脚、动作满、有戏。
+2026-10-13 新增：从 handraw-style 风格库引入 **FB-060 · Marla Frazee Playful Childlike
+Pencil & Watercolor Storybook**（原库编号 #316，分组 FB 经典绘本叙事）。
 
-| 维度 | 特征 |
-|------|------|
-| 画风 | 儿童绘本插画：黑色铅笔（彩铅）松线 + 透明水彩薄涂；有纸纹、有蜡笔/干笔质感 |
-| 线条 | 抖动松线、可见铅笔排线与复线；**不是**钢笔/墨线、**没有**黑色粗描边与漫画框 |
-| 人物 | 圆脸颊小下巴、小椭圆眼、短鼻小嘴、蓬乱飞发、短手短脚大头；全身动作有重量有调皮 |
-| 色彩 | 暖调低饱和绘本色（奶油黄、砖红、牛仔蓝、橄榄绿、暖褐、珊瑚粉），薄、不匀、局部露纸 |
-| 构图 | 与其他风格一致：顶部约 1/3 纯纸色留白给旁白，画面集中下方 2/3 |
-| 文字 | 旁白字体统一乐米蜡笔体（默认画进图；关掉后 letter_baicat 确定性加字） |
-| 适用 | 温情、童趣、成长、亲子、治愈、童年回忆；暗黑压抑题材仍用 colored-pencil |
+**配方按原库规范逐字写，不加自编描述。** 原库 SKILL.md 有硬性两条：① 不得自创画风特征、
+不得追加通用构图/质量套话；② 提示词只由三段构成 —— `Style name:` + `Reference author/style name:`
++ `Core style traits:`（traits 原样照抄索引里的值）。所以本风格的画风段就是这三行：
 
-**配方真源**：`STYLES.md` 的「frazee 绘本水彩（FB-060 · Marla Frazee，儿童绘本铅笔+水彩）」代码块，
-只填 `【主体】`（+【光影】【画纸】【构图】【分镜结构】由脚本自动填），禁止手工缩写改写。
-
-**必垫参考图（该风格独有要求）**：FB-060 在 GPT Image 2 上"作者名激活偏弱、核心特征激活强"，
-而原库该风格的可写特征只有一句作者名——所以**必须把参考图当画风垫图传进去**：
-
-```json
-{ "style": "frazee",
-  "style_reference": "/var/minis/skills/baicat/references/style-refs/FB-060-marla-frazee.webp",
-  "lighting": 1, "paper": 1, "split2": true }
+```
+Style name: Marla Frazee Playful Childlike Pencil & Watercolor Storybook.
+Reference author/style name: Marla Frazee.
+Core style traits: 参考绘本作者Marla Frazee.
 ```
 
-脚本行为：**story JSON 不写 `style_reference` 时自动用内置 FB-060 参考图**；首格把它当画风垫图
-（并自动追加"只参考画风、不准照抄主体/构图"的隔离指令），第 2 格起改用上一格成图做锚点链，
-保证跨格一致。**参考图里的孩子/黄雨衣/水花不得出现在成图里。**
+**⚠️ 禁止**为了"看起来更详细"往里加线条/配色/人物长相之类自己编的描述——这正是原库明令禁止的
+（自编特征会覆盖模型对这个作者的原生理解，越加越不像）。
 
-**支持范围**：逐格单图 + split2 双分镜（总格数 >6 时；与彩铅共用同一套上下拼接规则）；
-**不支持** multipanel 整页多格（该路线配方与布局模板绑彩铅纸张）。
+**要不要垫参考图**：不用。原库判定脚本实测
+`resolve_reference.py --model gpt-image-2 --style FB-060` →
+`activation_source = name+style+traits`、`use_reference_image = false`。
+skill 内保留原库样图 `references/style-refs/FB-060-marla-frazee.webp` 只作人工比对；
+要强制垫图时 story JSON 写 `"style_reference": "<该图路径>"`（脚本自动追加只参考画风的隔离指令）。
+
+**baicat 自己加的两层（属格式/防同质化，不是画风）**：
+- 【光影】【画纸】变量：跨篇轮换避免同画风被判 AI 批量图，同一篇锁一套（脚本锁死，记 USAGE.json）。
+- 【构图】【分镜结构】：顶部约 1/3 纯纸色留白给旁白 + split2 上下拼接规则，与其他风格共用。
+
+**人读版观察（仅供人看，禁止写进 prompt）**——原库该风格的可写特征只有一句作者名，
+下面这些是看原库样图 + 公开资料总结的，**不进提示词**：
+
+| 维度 | 观察 |
+|------|------|
+| 技法 | 黑色 Prismacolor 铅笔松线 + 透明水彩晕染，纸纹可见（公开资料：她的绘本即用此技法） |
+| 气质 | 儿童绘本、童趣、温暖、动作富有戏感 |
+| 适用 | 温情、童趣、成长、亲子、治愈、童年回忆；暗黑压抑题材仍走 `colored-pencil` |
+
+**支持范围**：逐格单图 + split2 双分镜（总格数 >6）；**不支持** multipanel 整页多格。
 
 ---
 
